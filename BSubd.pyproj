@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>69e2b957-6596-4008-98ba-06caec4c16ee</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>BSubd.py</StartupFile>
+    <StartupFile>BSubdAvg.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,7 +21,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="BSubd.py" />
+    <Compile Include="BSubdAvg.py" />
+    <Compile Include="BSubdMain.py" />
+    <Compile Include="DCELCore.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
