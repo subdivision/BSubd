@@ -1,14 +1,111 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.interpolate as si
 import matplotlib.path as Path
 import matplotlib.patches as patches
 
-from CSubd2D import *
-from CircAvg3D import *
-from BezierAvg import *
-#from  BOptAvg import *
-#from SmoothnessAnalysis import *
+
+#-----------------------------------------------------------------------------
+class BezierCrv():
+    def __init__(self, a, b, c, d):
+        self.a = a.copy()
+        self.b = b.copy()
+        self.c = c.copy()
+        self.d = d.copy()
+
+    @classmethod
+    def make_bezier_crv(cls, p0, n0, d0, p1, n1, d1):
+        a = p0
+        d = p1
+        theta = np.arccos( np.dot(n0, n1) )
+        p0p1_dist = np.linalg.norm(p0 - p1)
+        tang_len = p0p1_dist / (3. * ( np.cos(theta/4.) ** 2. ) )
+        b = p0 + d0 * tang_len
+        c = p1 + d1 * tang_len
+        return cls(a, b, c, d)
+
+    @classmethod
+    def make_flipped(cls, other):
+        return cls(other.d, other.c, other.b, other.a)
+
+    def der(self, t):
+        t2 = t * t
+        mt = 1 - t
+        mt2 = mt * mt
+        a = 3.*(self.b - self.a)
+        b = 3.*(self.c - self.b)
+        c = 3.*(self.d - self.c)
+        return a*mt2 + b*2*mt*t + c*t2
+
+    def eval(self, t):
+        t2 = t * t
+        t3 = t2 * t
+        mt = 1-t
+        mt2 = mt * mt
+        mt3 = mt2 * mt
+        return self.a * mt3 + self.b * 3. * mt2 * t \
+               + self.c * 3. * mt * t2 + self.d * t3
+
+#-----------------------------------------------------------------------------
+class CoonsPatch():
+    def __init__(self, c0, c1, d0, d1):
+        self.c0 = c0
+        self.c1 = c1
+        self.d0 = d0
+        self.d1 = d1
+
+    def _eval_Lc(self, u, v):
+        return (1. - v) * self.c0.eval(u) + v * self.c1.eval(u)
+
+    def _eval_dLc_du(self, u, v):
+        return (1. - v) * self.c0.der(u) + v * self.c1.der(u)
+
+    def _eval_dLc_dv(self, u, v):
+        return self.c1.eval(u) - self.c0.eval(u)
+
+
+    def _eval_Ld(self, u, v):
+        return (1. - u) * self.d0.eval(v) + u * self.d1.eval(v)
+
+    def _eval_dLd_du(self, u, v):
+        return self.d1.eval(v) - self.d0.eval(v)
+
+    def _eval_dLd_dv(self, u, v):
+        return (1. - u) * self.d0.der(v) + u * self.d1.der(v)
+
+
+    def _eval_B(self, u, v):
+        return   (1. - u) * (1. - v) * self.c0.eval( 0. ) \
+               + u * (1. - v) *  \
+               + (1. - u) * v * self.c1.eval( 0. ) \
+               + u * v * self.c1.eval( 1. )
+
+    def _eval_dB_du(self, u, v):
+        return    (1. - v) * (self.c0.eval( 1. ) - self.c0.eval( 0. ))\
+                + v * (self.c1.eval( 1. ) - self.c1.eval( 0. ) )
+
+    def _eval_dB_dv(self, u, v):
+        return    (1. - u) * ( self.c1.eval( 0. ) - self.c0.eval( 0. ) ) \
+                  + u * ( self.c1.eval( 1. ) - self.c0.eval( 1. ) ) 
+
+
+    def _eval_pt(self, u, v):
+        pt = self._eval_Lc( u, v ) + self._eval_Ld( u, v ) \
+              - self._eval_B( u, v )    
+        return pt
+
+    def _eval_norm(self, u, v):
+        dS_du = self._eval_dLc_du( u, v ) + self._eval_dLd_du( u, v ) \
+              - self._eval_dB_du( u, v )    
+        dS_dv = self._eval_dLc_dv( u, v ) + self._eval_dLd_dv( u, v ) \
+              - self._eval_dB_dv( u, v )
+        nr = np.cross( dS_du, dS_dv )
+        nr /= np.linalg.norm( nr )
+        return nr
+
+    def eval(self, u, v):
+        pt = self._eval_pt(u, v)
+        nr = self._eval_norm(u, v)
+        return pt, nr
 
 #-----------------------------------------------------------------------------
 #def cheb_nodes(N, a, b):

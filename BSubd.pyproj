@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>69e2b957-6596-4008-98ba-06caec4c16ee</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>BSubdAvg.py</StartupFile>
+    <StartupFile>BSubdMain.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>

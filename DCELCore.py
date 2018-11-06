@@ -1,7 +1,7 @@
 import numpy as np
 import math as m
 from stl import mesh
-from CircAvg3D import *
+from BSubdAvg import BezierCrv
 
 #-----------------------------------------------------------------------------
 def vec_almost_zero(v):
@@ -117,6 +117,13 @@ class DVertex(DElement):
         return result
 
     #-------------------------------------------------------------------------
+    def project_vector_to_plane(self, vec):
+        prim_tang = np.cross(self.nr, vec)
+        prim_tang /= np.linalg.norm(prim_tang)
+        prim_tang = np.cross(prim_tang, self.nr)
+        prim_tang /= np.linalg.norm(prim_tang)
+        return prim_tang
+    #-------------------------------------------------------------------------
     def init_tangent_dirs(self):
         self.tang_dirs = {}
         nei_edges = self.get_edges()
@@ -125,13 +132,13 @@ class DVertex(DElement):
         rec_ratio = 0.
         i = 0
         edges_dirs = []
-        tangs_step = 2. * np.pi / n
         for idx in range(n):
-            curr_vec = nei_edges[index].get_as_unit_vec_from(self)
+            curr_vec = nei_edges[idx].get_as_unit_vec_from(self)
             edges_dirs.append( (curr_vec, self.nr, idx) )
         edges_dirs.sort( key = sort_by_per_first )
-        prim_tang = np.cross(self.nr, edges_dirs[0][0])
-        prim_tang = np.cross(self.nr, prim_tang)
+        prim_tang = self.project_vector_to_plane(edges_dirs[0][0])
+        nei_tangs = []
+        tangs_step = 2. * np.pi / n
         for idx in range(n):
             curr_2d_ang = idx * tangs_step
             cos2d = np.cos(curr_2d_ang)
@@ -139,7 +146,39 @@ class DVertex(DElement):
                            + np.cross(self.nr, prim_tang) * np.sin(curr_2d_ang)\
                            + np.dot(self.nr, prim_tang) * self.nr * (1. - cos2d)
             curr_3d_tang /= np.linalg.norm(curr_3d_tang)
-            self.tang_dirs[nei_edges[idx]] = curr_3d_tang
+            nei_tangs.append(curr_3d_tang)
+        edge0_proj = self.project_vector_to_plane(nei_edges[0].get_as_unit_vec_from(self))
+        edge0_tang_idx = -1
+        edge0_tang_dist = np.pi
+        for idx in range(n):
+            curr_tang = nei_tangs[idx]
+            if vec_almost_zero(curr_tang - edge0_proj):
+                edge0_tang_idx = idx
+                edge0_tang_dist = 0
+                break
+            curr_dist = np.arccos( np.dot(curr_tang, edge0_proj) )
+            if curr_dist < edge0_tang_dist:
+                edge0_tang_dist = curr_dist
+                edge0_tang_idx = idx
+        prev_idx = (edge0_tang_idx - 1 + n)%n
+        next_idx = (edge0_tang_idx + 1)%n
+        edge1_proj = self.project_vector_to_plane(nei_edges[1].get_as_unit_vec_from(self))
+        prev_dist = np.arccos( np.dot(nei_tangs[prev_idx], edge1_proj) )
+        next_dist = np.arccos( np.dot(nei_tangs[next_idx], edge1_proj) )
+        if next < prev_dist:
+            tang_idxs  = range(edge0_tang_idx, n)
+            tang_idxs += range(0, edge0_tang_idx)
+        else:
+            tang_idxs  = range(edge0_tang_idx, -1, -1)
+            tang_idxs += range(n-1, edge0_tang_idx, -1)
+
+        for idx in range(n):
+            self.tang_dirs[nei_edges[idx]] = nei_tangs[tang_idxs[idx]]
+
+    #-------------------------------------------------------------------------
+    def copy_tang_dirs(self, other_tang_dirs):
+        self.tang_dirs = {}
+        self.tang_dirs.update(other_tang_dirs)
 
     #-------------------------------------------------------------------------
     def get_gaussian_curvature(self):
@@ -172,6 +211,7 @@ class DVertex(DElement):
 class DEdge(DElement):
     def __init__(self, eid = -1):
         DElement.__init__(self, eid)
+        self.bezier_crv = None
     
     def get_face_hedge(self, face):
         return self.he if self.he.face.eid == face.eid else self.he.twin
@@ -227,6 +267,16 @@ class DEdge(DElement):
             cos_gamma = 1.0
         gamma = np.arccos(cos_gamma)
         return np.abs(gamma)
+
+    def make_bezier_crv(self):
+        v0, v1 = self.get_vertices()
+        p0 = v0.pt
+        n0 = v0.nr
+        p1 = v1.pt
+        n1 = v1.nr
+        t0 = v0.tang_dirs[self]
+        t1 = v1.tang_dirs[self]
+        self.bezier_crv = BezierCrv.make_bezier_crv(p0, n0, t0, p1, n1, t1)
 
 #=============================================================================
 class DFace(DElement):
@@ -600,6 +650,13 @@ class DCtrlMesh(object):
             res_norm = weight*res_norm + (1. - weight)*v.nr
             v.set_nr(res_norm)
  
+    #-------------------------------------------------------------------------
+    def init_tangent_dirs(self):
+        for v in self.v:
+            v.init_tangent_dirs()
+        for e in self.e:
+            e.make_bezier_crv()
+
     #-------------------------------------------------------------------------
     def init_as_quad_cube(self, offset = 10.0):
         self.idgen = IDGenerator()
@@ -1738,23 +1795,23 @@ class DCtrlMesh(object):
         old_verts_2_new_verts = {}
 
         for vert in self.v:
-            vert.init_tangent_dirs()
             preserved_vert = refined_mesh.create_vertex(vert.pt)
-            preserved_vert.set_deriv_dirs(vert.tang_dirs)
             preserved_vert.set_nr(vert.nr)
+            preserved_vert.copy_tang_dirs(vert.tang_dirs)
             old_verts_2_new_verts[vert.eid] = preserved_vert
 
         for edge in self.e:
-            edge.init_bspl_crv()
-            avg_pt, avg_nr = eval_bspl_crv(0.5, edge.bspl_crv)
-            avg_vert = refined_mesh.create_vertex(avg_pt)
-            avg_vert.set_nr(avg_nr)
+            avg_vert = refined_mesh.average_edge(0.5, edge)
             old_edges_2_new_verts[edge.eid] = avg_vert
             new_edge1 = refined_mesh.create_edge()
             new_edge2 = refined_mesh.create_edge()
             old_edges_2_new_edges[(edge.eid, edge.he.vert.eid)] = new_edge1
             old_edges_2_new_edges[(edge.eid, edge.he.twin.vert.eid)] = new_edge2
 
+        #for vert in self.v:
+        #    old_verts_2_new_verts[vert.eid].update_inherited_tangents(\
+        #                                          old_edges_2_new_edges)
+ 
         for face in self.f:
             cntr_pr, cntr_norm = face.eval_bspl_srf(0.5, 0.5)
             cntr_vert = refined_mesh.create_vertex(cntr_pt)

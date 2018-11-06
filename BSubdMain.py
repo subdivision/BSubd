@@ -3,8 +3,6 @@ import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from DCELCore import DCtrlMesh
-from CircAvg3D import circle_avg_3D
-from CSubd2D import linear_avg
 #from BSplineAvg import bspline_average_export_3D
 
 INP_PATH_PREFIX = 'C:/TAU/InputMeshes/'
@@ -34,8 +32,8 @@ def plot_results(orig_ctrl_mesh, circ_avg_ctrl_mesh, lin_ctrl_mesh):
 
 #-----------------------------------------------------------------------------
 def avg_fn_to_str(avg_fn):
-    return '_circ_' if avg_fn == circle_avg_3D else '_lin_'
-
+    #return '_circ_' if avg_fn == circle_avg_3D else '_bez_'
+    return '_bez_'
 #-----------------------------------------------------------------------------
 def create_crystal3_mesh(id, avg_func):
     file_prefix = 'crystal_3' + avg_fn_to_str(avg_func)
@@ -211,35 +209,34 @@ def get_initial_mesh(demo_mesh, b_quadr = True):
              ('cryst', True)  : None,
              ('cryst', False) : create_crystal3_mesh}
 
-    circ_avg_ctrl_mesh, circ_res_name = \
-        demos[(demo_mesh, b_quadr)](2, circle_avg_3D)
-    lin_ctrl_mesh, lin_res_name = \
-        demos[(demo_mesh, b_quadr)](3, linear_avg)
+    bez_avg_ctrl_mesh, bez_res_name = \
+        demos[(demo_mesh, b_quadr)](2, None)
+    bez_avg_ctrl_mesh.init_tangent_dirs()
 
-    return circ_avg_ctrl_mesh, circ_res_name, lin_ctrl_mesh, lin_res_name 
+    return bez_avg_ctrl_mesh, bez_res_name
+
+
 #-----------------------------------------------------------------------------
 def srf_main():
     n_of_iterations = 3
+    b_quad = True
+    #example_name = 'tower'
+    example_name = 'cube'
+    #example_name = 'torus'
+    #example_name = 'tube'
+    #example_name = 'mesh'
+    #example_name = 'tetra'
 
-    ref_method, ref_name, b_quad = DCtrlMesh.refine_as_catmull_clark, 'cc_', True
-    #ref_method, ref_name, b_quad = DCtrlMesh.refine_as_kob4pt, 'kob4pt_', True
-    #ref_method, ref_name, b_quad = DCtrlMesh.refine_as_butterfly, 'butterfly_', False
-    #ref_method, ref_name, b_quad = DCtrlMesh.refine_as_loop, 'loop_', False
+    res_file_suffix = 'bez_' + str(n_of_iterations) + 'iters.off'
+    bez_avg_ctrl_mesh, bez_res_name = get_initial_mesh(example_name, b_quad)
 
-    example_name = 'tower'
-    res_file_suffix = ref_name + str(n_of_iterations) + 'iters.off'
-    circ_avg_ctrl_mesh, circ_res_name, \
-        lin_ctrl_mesh, lin_res_name = get_initial_mesh(example_name, b_quad)
+    orig_ctrl_mesh, _ = get_initial_mesh(example_name, b_quad)
+    orig_ctrl_mesh.dump_obj_file(RES_PATH_PREFIX + example_name + '_orig.off')
 
-    orig_ctrl_mesh, _, _, _ = get_initial_mesh(example_name, b_quad)
-    orig_ctrl_mesh.dump_obj_file(RES_PATH_PREFIX + example_name + '3.off')
-
-    circ_res_name += res_file_suffix
-    lin_res_name += res_file_suffix
+    bez_res_name += res_file_suffix
 
     for i in range(n_of_iterations):
-        circ_avg_ctrl_mesh = ref_method(circ_avg_ctrl_mesh)
-        lin_ctrl_mesh = ref_method(lin_ctrl_mesh)
+        bez_avg_ctrl_mesh = bez_avg_ctrl_mesh.refine_by_bspl_interpolation()
 
     #cmda, ccad, cmmd =  circ_avg_ctrl_mesh.get_dehidral_angle_stats()[1],\
     #                    circ_avg_ctrl_mesh.get_gaus_curvature_abs_delta(),\
@@ -250,11 +247,11 @@ def srf_main():
     #print 'Linear {:1.5f} & {:1.5f} & {:1.5f}'.format(lmda, lcad, lmmd)
     #print 'Circle {:1.5f} & {:1.5f} & {:1.5f}'.format(cmda, ccad, cmmd)
 
-    plot_results(orig_ctrl_mesh, circ_avg_ctrl_mesh, lin_ctrl_mesh)   
+    plot_results(orig_ctrl_mesh, bez_avg_ctrl_mesh)   
 
     #blend_meshes(circ_avg_ctrl_mesh, lin_ctrl_mesh)
 
-    #circ_avg_ctrl_mesh.dump_obj_file(RES_PATH_PREFIX + circ_res_name)
+    bez_avg_ctrl_mesh.dump_obj_file(RES_PATH_PREFIX + bez_res_name)
     #lin_ctrl_mesh.dump_obj_file(RES_PATH_PREFIX + lin_res_name)
     #d = lin_ctrl_mesh.get_corresp_mesh_dist(circ_avg_ctrl_mesh)
     #print d
