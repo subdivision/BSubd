@@ -1,7 +1,7 @@
 import numpy as np
 import math as m
 from stl import mesh
-from BSubdAvg import BezierCrv
+from BSubdAvg import BezierCrv, CoonsPatch
 
 #-----------------------------------------------------------------------------
 def vec_almost_zero(v):
@@ -181,6 +181,14 @@ class DVertex(DElement):
         self.tang_dirs.update(other_tang_dirs)
 
     #-------------------------------------------------------------------------
+    def update_inherited_tangents(self, old_edges_2_new_edges, old_vert_eid):
+        new_tang_dirs = {}
+        for old_edge, tang_vec in self.tang_dirs.iteritems():
+            new_edge = old_edges_2_new_edges[(old_edge.eid, old_vert_eid)]
+            new_tang_dirs[new_edge] = tang_vec
+        self.tang_dirs = new_tang_dirs
+
+    #-------------------------------------------------------------------------
     def get_gaussian_curvature(self):
         nei_faces = self.get_faces()
         corner_angles = 0.
@@ -268,8 +276,11 @@ class DEdge(DElement):
         gamma = np.arccos(cos_gamma)
         return np.abs(gamma)
 
-    def make_bezier_crv(self):
+    def make_bezier_crv(self, anchor):
         v0, v1 = self.get_vertices()
+        if v1 == anchor:
+            v0, v1 = v1, v0
+
         p0 = v0.pt
         n0 = v0.nr
         p1 = v1.pt
@@ -277,6 +288,7 @@ class DEdge(DElement):
         t0 = v0.tang_dirs[self]
         t1 = v1.tang_dirs[self]
         self.bezier_crv = BezierCrv.make_bezier_crv(p0, n0, t0, p1, n1, t1)
+        return self.bezier_crv
 
 #=============================================================================
 class DFace(DElement):
@@ -653,9 +665,8 @@ class DCtrlMesh(object):
     #-------------------------------------------------------------------------
     def init_tangent_dirs(self):
         for v in self.v:
-            v.init_tangent_dirs()
-        for e in self.e:
-            e.make_bezier_crv()
+            if not hasattr(v, 'tang_dirs'):
+                v.init_tangent_dirs()
 
     #-------------------------------------------------------------------------
     def init_as_quad_cube(self, offset = 10.0):
@@ -941,9 +952,9 @@ class DCtrlMesh(object):
                 xs = [vert.pt[0]]
                 ys = [vert.pt[1]]
                 zs = [vert.pt[2]]
-                us = [-vert.nr[0]]
-                vs = [-vert.nr[1]]
-                ws = [-vert.nr[2]]
+                us = [vert.nr[0]]
+                vs = [vert.nr[1]]
+                ws = [vert.nr[2]]
                 cnvs.quiver(xs,ys,zs,us,vs,ws, color=clr, pivot='tail')
 
     #-------------------------------------------------------------------------
@@ -1793,16 +1804,52 @@ class DCtrlMesh(object):
         old_edges_2_new_verts = {}
         old_edges_2_new_edges = {}
         old_verts_2_new_verts = {}
+        old_edges_2_edge_pts = {}
+        old_faces_2_face_pts = {}
 
         for vert in self.v:
             preserved_vert = refined_mesh.create_vertex(vert.pt)
             preserved_vert.set_nr(vert.nr)
-            preserved_vert.copy_tang_dirs(vert.tang_dirs)
+            #preserved_vert.copy_tang_dirs(vert.tang_dirs)
             old_verts_2_new_verts[vert.eid] = preserved_vert
 
+        for face in self.f:
+            old_edges = face.get_edges()
+            old_verts = face.get_vertices()
+            n = len(old_edges)
+            curves = []
+            for i in range(n):
+                curves.append(old_edges[i].make_bezier_crv(old_verts[i]))
+            face_srf = CoonsPatch(curves)
+            for i in range(n):
+                if 0 == i:
+                    u = 0.5 #0.
+                    v = 0.  #0.5
+                elif 1 == i:
+                    u = 1.  #0.5
+                    v = 0.5 #1
+                elif 2 == i:
+                    u = 0.5 #1.
+                    v = 1.  #0.5
+                else:
+                    u = 0.  #0.5
+                    v = 0.5 #0.
+                pt, nr = face_srf.eval(u, v)
+                if old_edges_2_edge_pts.has_key( old_edges[i].eid ):
+                    pt2, nr2 = old_edges_2_edge_pts[old_edges[i].eid]
+                    nr3 = ( nr + nr2 ) /2.
+                    nr3 /= np.linalg.norm(nr3)
+                    old_edges_2_edge_pts[old_edges[i].eid] = (pt, nr3)
+                else:
+                    old_edges_2_edge_pts[old_edges[i].eid] = (pt, nr)
+            pt, nr = face_srf.eval(0.5, 0.5)
+            old_faces_2_face_pts[face.eid] = (pt, nr)
+
         for edge in self.e:
-            avg_vert = refined_mesh.average_edge(0.5, edge)
-            old_edges_2_new_verts[edge.eid] = avg_vert
+            edge_pt, edge_nr = old_edges_2_edge_pts[edge.eid]
+            avg_vrtx = refined_mesh.create_vertex(edge_pt)
+            avg_vrtx.set_nr(edge_nr)
+            old_edges_2_new_verts[edge.eid] = avg_vrtx
             new_edge1 = refined_mesh.create_edge()
             new_edge2 = refined_mesh.create_edge()
             old_edges_2_new_edges[(edge.eid, edge.he.vert.eid)] = new_edge1
@@ -1810,30 +1857,41 @@ class DCtrlMesh(object):
 
         #for vert in self.v:
         #    old_verts_2_new_verts[vert.eid].update_inherited_tangents(\
-        #                                          old_edges_2_new_edges)
+        #                                          old_edges_2_new_edges,
+        #                                                       vert.eid)
  
         for face in self.f:
-            cntr_pr, cntr_norm = face.eval_bspl_srf(0.5, 0.5)
+            cntr_pt, cntr_norm = old_faces_2_face_pts[face.eid]
             cntr_vert = refined_mesh.create_vertex(cntr_pt)
             cntr_vert.set_nr(cntr_norm)
-            for i in [0,1,2,3]:
+            old_edges = face.get_edges()
+            old_verts = face.get_vertices()
+            new_mid_vertices = []
+            new_inner_edges = []
+            for i in range(len(old_edges)):
+                new_inner_edges.append(refined_mesh.create_edge())
+                new_mid_vertices.append(old_edges_2_new_verts[old_edges[i].eid])
+
+            n = len(old_edges)
+            for i in range(n):
                 new_face = refined_mesh.create_face()
-                inner_prev_edge = new_inner_edges[(i+3)%4]
+                inner_prev_edge = new_inner_edges[(i+n-1)%n]
                 inner_curr_edge = new_inner_edges[i]
                 new_face_verts = [old_verts_2_new_verts[old_verts[i].eid], 
                                   new_mid_vertices[i], 
                                   cntr_vert, 
-                                  new_mid_vertices[(i+3)%4]]
+                                  new_mid_vertices[(i+n-1)%n]]
                 new_face_edges = [old_edges_2_new_edges[(old_edges[i].eid, 
                                                          old_verts[i].eid)],
                                   inner_curr_edge,
                                   inner_prev_edge,
-                                  old_edges_2_new_edges[(old_edges[(i+3)%4].eid, 
+                                  old_edges_2_new_edges[(old_edges[(i+n-1)%4].eid, 
                                                          old_verts[i].eid)]]
                 refined_mesh.compile_face(new_face_verts, 
                                           new_face_edges, 
                                           new_face)            
-            return refined_mesh
+        refined_mesh.init_tangent_dirs()    
+        return refined_mesh
 
     
 #============================== END OF FILE ==================================

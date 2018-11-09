@@ -21,10 +21,10 @@ def plot_results(orig_ctrl_mesh, circ_avg_ctrl_mesh, lin_ctrl_mesh):
     ax  = fig.add_subplot(111, projection = '3d', aspect='equal')
     ax.view_init(azim=0, elev=0)
 
-    if orig_ctrl_mesh:
-        orig_ctrl_mesh.plot(ax, True, 'k')
     if circ_avg_ctrl_mesh:
         circ_avg_ctrl_mesh.plot(ax, True, 'r')
+    if orig_ctrl_mesh:
+        orig_ctrl_mesh.plot(ax, True, 'k')
     if lin_ctrl_mesh:
         lin_ctrl_mesh.plot(ax, False, 'b')
 
@@ -218,10 +218,10 @@ def get_initial_mesh(demo_mesh, b_quadr = True):
 
 #-----------------------------------------------------------------------------
 def srf_main():
-    n_of_iterations = 3
+    n_of_iterations = 1
     b_quad = True
-    #example_name = 'tower'
-    example_name = 'cube'
+    example_name = 'tower'
+    #example_name = 'cube'
     #example_name = 'torus'
     #example_name = 'tube'
     #example_name = 'mesh'
@@ -247,7 +247,7 @@ def srf_main():
     #print 'Linear {:1.5f} & {:1.5f} & {:1.5f}'.format(lmda, lcad, lmmd)
     #print 'Circle {:1.5f} & {:1.5f} & {:1.5f}'.format(cmda, ccad, cmmd)
 
-    plot_results(orig_ctrl_mesh, bez_avg_ctrl_mesh)   
+    plot_results(orig_ctrl_mesh, bez_avg_ctrl_mesh, None)   
 
     #blend_meshes(circ_avg_ctrl_mesh, lin_ctrl_mesh)
 

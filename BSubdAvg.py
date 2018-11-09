@@ -34,7 +34,8 @@ class BezierCrv():
         a = 3.*(self.b - self.a)
         b = 3.*(self.c - self.b)
         c = 3.*(self.d - self.c)
-        return a*mt2 + b*2*mt*t + c*t2
+        der = a*mt2 + b*2*mt*t + c*t2
+        return der
 
     def eval(self, t):
         t2 = t * t
@@ -42,29 +43,46 @@ class BezierCrv():
         mt = 1-t
         mt2 = mt * mt
         mt3 = mt2 * mt
-        return self.a * mt3 + self.b * 3. * mt2 * t \
+        pt = self.a * mt3 + self.b * 3. * mt2 * t \
                + self.c * 3. * mt * t2 + self.d * t3
+        return pt
 
 #-----------------------------------------------------------------------------
 class CoonsPatch():
-    def __init__(self, c0, c1, d0, d1):
-        self.c0 = c0
-        self.c1 = c1
-        self.d0 = d0
-        self.d1 = d1
+    def __init__(self, bndry_crvs):
+        self.c0 = bndry_crvs[0]
+        self.c1 = BezierCrv.make_flipped(bndry_crvs[2])
+        self.d0 = BezierCrv.make_flipped(bndry_crvs[3])
+        self.d1 = bndry_crvs[1]
+        #c0(0) = d0(0), , 
+        c0_0 = self.c0.eval(0)
+        d0_0 = self.d0.eval(0)
+        #c0(1) = d1(0)
+        c0_1 = self.c0.eval(1)
+        d1_0 = self.d1.eval(0)
+        #c1(0) = d0(1)
+        c1_0 = self.c1.eval(0)
+        d0_1 = self.d0.eval(1)
+        #c1(1) = d1(1)
+        c1_1 = self.c1.eval(1)
+        d1_1 = self.d1.eval(1)
+        a = 5
 
     def _eval_Lc(self, u, v):
-        return (1. - v) * self.c0.eval(u) + v * self.c1.eval(u)
+        pt = (1. - v) * self.c0.eval(u) + v * self.c1.eval(u)
+        return pt
 
     def _eval_dLc_du(self, u, v):
-        return (1. - v) * self.c0.der(u) + v * self.c1.der(u)
+        pt = (1. - v) * self.c0.der(u) + v * self.c1.der(u)
+        return pt
 
     def _eval_dLc_dv(self, u, v):
         return self.c1.eval(u) - self.c0.eval(u)
 
 
     def _eval_Ld(self, u, v):
-        return (1. - u) * self.d0.eval(v) + u * self.d1.eval(v)
+        pt = (1. - u) * self.d0.eval(v) + u * self.d1.eval(v)
+        return pt
 
     def _eval_dLd_du(self, u, v):
         return self.d1.eval(v) - self.d0.eval(v)
@@ -74,10 +92,12 @@ class CoonsPatch():
 
 
     def _eval_B(self, u, v):
-        return   (1. - u) * (1. - v) * self.c0.eval( 0. ) \
-               + u * (1. - v) *  \
-               + (1. - u) * v * self.c1.eval( 0. ) \
-               + u * v * self.c1.eval( 1. )
+        p1 =  (1. - u) * (1. - v) * self.c0.eval( 0. ) 
+        p2 =        u  * (1. - v) * self.c0.eval( 1. ) 
+        p3 =  (1. - u) *       v  * self.c1.eval( 0. ) 
+        p4 =        u  *       v  * self.c1.eval( 1. )
+        pt = p1+p2+p3+p4
+        return pt
 
     def _eval_dB_du(self, u, v):
         return    (1. - v) * (self.c0.eval( 1. ) - self.c0.eval( 0. ))\
@@ -89,8 +109,10 @@ class CoonsPatch():
 
 
     def _eval_pt(self, u, v):
-        pt = self._eval_Lc( u, v ) + self._eval_Ld( u, v ) \
-              - self._eval_B( u, v )    
+        pt_Lc = self._eval_Lc( u, v )
+        pt_Ld = self._eval_Ld( u, v )
+        pt_B  = self._eval_B( u, v )    
+        pt = pt_Lc + pt_Ld - pt_B
         return pt
 
     def _eval_norm(self, u, v):
