@@ -1,7 +1,10 @@
 import numpy as np
+from BSubdAvg import BezierSrf
 import math as m
 from stl import mesh
 from BSubdAvg import BezierCrv, CoonsPatch
+
+#np.seterr(all='raise')
 
 #-----------------------------------------------------------------------------
 def vec_almost_zero(v):
@@ -1821,6 +1824,7 @@ class DCtrlMesh(object):
             for i in range(n):
                 curves.append(old_edges[i].make_bezier_crv(old_verts[i]))
             face_srf = CoonsPatch(curves)
+            bzr_srf = BezierSrf(curves)
             for i in range(n):
                 if 0 == i:
                     u = 0.5 #0.

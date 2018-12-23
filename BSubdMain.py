@@ -220,14 +220,14 @@ def get_initial_mesh(demo_mesh, b_quadr = True):
 def srf_main():
     n_of_iterations = 1
     b_quad = True
-    example_name = 'tower'
-    #example_name = 'cube'
+    #example_name = 'tower'
+    example_name = 'cube'
     #example_name = 'torus'
     #example_name = 'tube'
     #example_name = 'mesh'
     #example_name = 'tetra'
 
-    res_file_suffix = 'bez_' + str(n_of_iterations) + 'iters.off'
+    res_file_suffix = str(n_of_iterations) + 'iters.off'
     bez_avg_ctrl_mesh, bez_res_name = get_initial_mesh(example_name, b_quad)
 
     orig_ctrl_mesh, _ = get_initial_mesh(example_name, b_quad)

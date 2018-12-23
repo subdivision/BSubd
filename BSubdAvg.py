@@ -48,6 +48,36 @@ class BezierCrv():
         return pt
 
 #-----------------------------------------------------------------------------
+class BezierSrf():
+    def __init__(self, bndry_crvs):
+        self.cpts = np.zeros((4,4,3))
+        self._import_ctrl_pts(bndry_crvs[0], [(0,0),(1,0),(2,0),(3,0)])
+        self._import_ctrl_pts(bndry_crvs[1], [(3,0),(3,1),(3,2),(3,3)])
+        self._import_ctrl_pts(bndry_crvs[2], [(3,3),(2,3),(1,3),(0,3)])
+        self._import_ctrl_pts(bndry_crvs[3], [(0,3),(0,2),(0,1),(0,0)])
+        self._complete_cpts((0,0), (1,1), (1,0), (0,1))
+        self._complete_cpts((3,0), (2,1), (2,0), (3,1))
+        self._complete_cpts((3,3), (2,2), (2,3), (3,2))
+        self._complete_cpts((0,3), (1,2), (1,3), (0,2))
+
+    def _import_ctrl_pts(self, bez_crv, trgt_idxs):
+        self.cpts[trgt_idxs[0][0], trgt_idxs[0][1],:] = bez_crv.a
+        self.cpts[trgt_idxs[1][0], trgt_idxs[1][1],:] = bez_crv.b
+        self.cpts[trgt_idxs[2][0], trgt_idxs[2][1],:] = bez_crv.c
+        self.cpts[trgt_idxs[3][0], trgt_idxs[3][1],:] = bez_crv.d
+
+    def _complete_cpts(self, crnr_idx, trgt_idx, un_idx, vn_idx):
+        crnr = self.cpts[crnr_idx[0], crnr_idx[1], :]
+        unei = self.cpts[un_idx[0], un_idx[1], :]
+        vnei = self.cpts[vn_idx[0], vn_idx[1], :]
+        delta_u = unei - crnr
+        delta_v = vnei - crnr
+        qu = vnei + delta_u
+        qv = unei + delta_v
+        q = (qu + qv)/2.
+        self.cpts[trgt_idx[0], trgt_idx[1], :] = q
+
+#-----------------------------------------------------------------------------
 class CoonsPatch():
     def __init__(self, bndry_crvs):
         self.c0 = bndry_crvs[0]
