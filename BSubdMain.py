@@ -77,6 +77,7 @@ def create_tower4_mesh(id, avg_func):
     orig_ctrl_mesh.extrude_face(30, 20.)
     orig_ctrl_mesh.extrude_face(34, 20.)
     orig_ctrl_mesh.set_naive_normals()
+    orig_ctrl_mesh.flip_all_normals()
     #orig_ctrl_mesh.print_ctrl_mesh()
     return orig_ctrl_mesh, file_prefix
 
@@ -218,10 +219,10 @@ def get_initial_mesh(demo_mesh, b_quadr = True):
 
 #-----------------------------------------------------------------------------
 def srf_main():
-    n_of_iterations = 1
+    n_of_iterations = 5
     b_quad = True
-    #example_name = 'tower'
-    example_name = 'cube'
+    example_name = 'tower'
+    #example_name = 'cube'
     #example_name = 'torus'
     #example_name = 'tube'
     #example_name = 'mesh'
@@ -247,7 +248,7 @@ def srf_main():
     #print 'Linear {:1.5f} & {:1.5f} & {:1.5f}'.format(lmda, lcad, lmmd)
     #print 'Circle {:1.5f} & {:1.5f} & {:1.5f}'.format(cmda, ccad, cmmd)
 
-    plot_results(orig_ctrl_mesh, bez_avg_ctrl_mesh, None)   
+    #plot_results(orig_ctrl_mesh, bez_avg_ctrl_mesh, None)   
 
     #blend_meshes(circ_avg_ctrl_mesh, lin_ctrl_mesh)
 

@@ -49,16 +49,29 @@ class BezierCrv():
 
 #-----------------------------------------------------------------------------
 class BezierSrf():
-    def __init__(self, bndry_crvs):
+    bez = np.array([[-1.,  3., -3., 1.],
+                    [ 3., -6.,  3., 0.],
+                    [-3.,  3.,  0., 0.],
+                    [ 1.,  0.,  0., 0.]])
+
+    def __init__(self, bndry_crvs, q11_tang_dirs, theta02, theta13):
+        self.bndry_crvs = bndry_crvs[:]
         self.cpts = np.zeros((4,4,3))
         self._import_ctrl_pts(bndry_crvs[0], [(0,0),(1,0),(2,0),(3,0)])
         self._import_ctrl_pts(bndry_crvs[1], [(3,0),(3,1),(3,2),(3,3)])
         self._import_ctrl_pts(bndry_crvs[2], [(3,3),(2,3),(1,3),(0,3)])
         self._import_ctrl_pts(bndry_crvs[3], [(0,3),(0,2),(0,1),(0,0)])
-        self._complete_cpts((0,0), (1,1), (1,0), (0,1))
-        self._complete_cpts((3,0), (2,1), (2,0), (3,1))
-        self._complete_cpts((3,3), (2,2), (2,3), (3,2))
-        self._complete_cpts((0,3), (1,2), (1,3), (0,2))
+        #self._complete_cpts((0,0), (1,1), (1,0), (0,1))
+        #self._complete_cpts((3,0), (2,1), (2,0), (3,1))
+        #self._complete_cpts((3,3), (2,2), (2,3), (3,2))
+        #self._complete_cpts((0,3), (1,2), (1,3), (0,2))
+        self._complete_cpts((0,0), (1,1), (3,3), q11_tang_dirs[0], theta02)
+        self._complete_cpts((3,0), (2,1), (0,3), q11_tang_dirs[1], theta13)
+        self._complete_cpts((3,3), (2,2), (0,0), q11_tang_dirs[2], theta02)
+        self._complete_cpts((0,3), (1,2), (3,0), q11_tang_dirs[3], theta13)
+        self.cpts_x = self.cpts[:,:,0]
+        self.cpts_y = self.cpts[:,:,1]
+        self.cpts_z = self.cpts[:,:,2]
 
     def _import_ctrl_pts(self, bez_crv, trgt_idxs):
         self.cpts[trgt_idxs[0][0], trgt_idxs[0][1],:] = bez_crv.a
@@ -66,16 +79,69 @@ class BezierSrf():
         self.cpts[trgt_idxs[2][0], trgt_idxs[2][1],:] = bez_crv.c
         self.cpts[trgt_idxs[3][0], trgt_idxs[3][1],:] = bez_crv.d
 
-    def _complete_cpts(self, crnr_idx, trgt_idx, un_idx, vn_idx):
+    #def _complete_cpts(self, crnr_idx, trgt_idx, un_idx, vn_idx):
+    #    crnr = self.cpts[crnr_idx[0], crnr_idx[1], :]
+    #    unei = self.cpts[un_idx[0], un_idx[1], :]
+    #    vnei = self.cpts[vn_idx[0], vn_idx[1], :]
+    #    delta_u = unei - crnr
+    #    delta_v = vnei - crnr
+    #    qu = vnei + delta_u
+    #    qv = unei + delta_v
+    #    q = (qu + qv)/2.
+    #    #Ver 1.
+    #    self.cpts[trgt_idx[0], trgt_idx[1], :] = q
+
+    #    #Ver 2.
+    #    #self.cpts[trgt_idx[0], trgt_idx[1], :] = (unei + vnei)/2.
+
+    def _complete_cpts(self, crnr_idx, trgt_idx, other_idx, tan_dir, theta):
         crnr = self.cpts[crnr_idx[0], crnr_idx[1], :]
-        unei = self.cpts[un_idx[0], un_idx[1], :]
-        vnei = self.cpts[vn_idx[0], vn_idx[1], :]
-        delta_u = unei - crnr
-        delta_v = vnei - crnr
-        qu = vnei + delta_u
-        qv = unei + delta_v
-        q = (qu + qv)/2.
-        self.cpts[trgt_idx[0], trgt_idx[1], :] = q
+        othr = self.cpts[other_idx[0], other_idx[1], :]
+        dst = np.linalg.norm(crnr - othr)
+        tan_len = dst / (3. * (np.cos(theta/4.))**2)
+        q11 = crnr + tan_len * tan_dir
+        self.cpts[trgt_idx[0], trgt_idx[1], :] = q11
+
+    def _eval_pt(self, u, v):
+        u_mtrx = np.array([[u**3, u**2, u, 1]])
+        v_mtrx = np.array([[v**3, v**2, v, 1]]).T
+        pt_x = np.matmul(np.matmul(np.matmul(np.matmul(u_mtrx, BezierSrf.bez), self.cpts_x ), BezierSrf.bez), v_mtrx )
+        pt_y = np.matmul(np.matmul(np.matmul(np.matmul(u_mtrx, BezierSrf.bez), self.cpts_y ), BezierSrf.bez), v_mtrx )
+        pt_z = np.matmul(np.matmul(np.matmul(np.matmul(u_mtrx, BezierSrf.bez), self.cpts_z ), BezierSrf.bez), v_mtrx )
+        pt = np.array([pt_x[0][0], pt_y[0][0], pt_z[0][0]])
+        return pt
+
+    def _eval_du(self, u, v):
+        du_mtrx = np.array([[3.*u**2, 2.*u, 1, 0]])
+        v_mtrx = np.array([[v**3, v**2, v, 1]]).T
+        pt_x = np.matmul(np.matmul(np.matmul(np.matmul(du_mtrx, BezierSrf.bez), self.cpts_x ), BezierSrf.bez), v_mtrx )
+        pt_y = np.matmul(np.matmul(np.matmul(np.matmul(du_mtrx, BezierSrf.bez), self.cpts_y ), BezierSrf.bez), v_mtrx )
+        pt_z = np.matmul(np.matmul(np.matmul(np.matmul(du_mtrx, BezierSrf.bez), self.cpts_z ), BezierSrf.bez), v_mtrx )
+        du_vec = np.array([pt_x[0][0], pt_y[0][0], pt_z[0][0]])
+        return du_vec
+
+    def _eval_dv(self, u, v):
+        u_mtrx = np.array([[u**3, u**2, u, 1]])
+        dv_mtrx = np.array([[3.*v**2, 2.*v, 1, 0]]).T
+        pt_x = np.matmul(np.matmul(np.matmul(np.matmul(u_mtrx, BezierSrf.bez), self.cpts_x ), BezierSrf.bez), dv_mtrx )
+        pt_y = np.matmul(np.matmul(np.matmul(np.matmul(u_mtrx, BezierSrf.bez), self.cpts_y ), BezierSrf.bez), dv_mtrx )
+        pt_z = np.matmul(np.matmul(np.matmul(np.matmul(u_mtrx, BezierSrf.bez), self.cpts_z ), BezierSrf.bez), dv_mtrx )
+        dv_vec = np.array([pt_x[0][0], pt_y[0][0], pt_z[0][0]])
+        return dv_vec
+
+    def _eval_norm(self, u, v):
+        du_srf = self._eval_du(u,v)
+        du_srf /= np.linalg.norm(du_srf)
+        dv_srf = self._eval_dv(u,v)
+        dv_srf /= np.linalg.norm(dv_srf)
+        du_crv = self.bndry_crvs[0].der(u)
+        du_crv /= np.linalg.norm(du_crv)
+        norm_vec = np.cross( du_srf, dv_srf )
+        norm_vec /= np.linalg.norm(norm_vec)
+        return norm_vec
+
+    def eval(self, u, v):
+        return self._eval_pt(u, v), self._eval_norm(u, v)
 
 #-----------------------------------------------------------------------------
 class CoonsPatch():

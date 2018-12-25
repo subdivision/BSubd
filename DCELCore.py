@@ -666,6 +666,11 @@ class DCtrlMesh(object):
             v.set_nr(res_norm)
  
     #-------------------------------------------------------------------------
+    def flip_all_normals(self):
+        for v in self.v:
+            v.set_nr(-v.nr)
+
+    #-------------------------------------------------------------------------
     def init_tangent_dirs(self):
         for v in self.v:
             if not hasattr(v, 'tang_dirs'):
@@ -1821,10 +1826,19 @@ class DCtrlMesh(object):
             old_verts = face.get_vertices()
             n = len(old_edges)
             curves = []
+            q11_tang_dirs = []
             for i in range(n):
                 curves.append(old_edges[i].make_bezier_crv(old_verts[i]))
-            face_srf = CoonsPatch(curves)
-            bzr_srf = BezierSrf(curves)
+                tang_i = old_verts[i].tang_dirs[old_edges[i]]
+                tang_im1 = old_verts[i].tang_dirs[old_edges[(i-1+n)%n]]
+                q11_tang = (tang_i + tang_im1)/2.
+                q11_tang /= np.linalg.norm(q11_tang)
+                q11_tang_dirs.append(q11_tang)
+            #face_srf = CoonsPatch(curves)
+
+            theta02 = np.arccos(np.dot(old_verts[0].nr, old_verts[2].nr))
+            theta13 = np.arccos(np.dot(old_verts[1].nr, old_verts[3].nr))
+            bzr_srf = BezierSrf(curves, q11_tang_dirs, theta02, theta13)
             for i in range(n):
                 if 0 == i:
                     u = 0.5 #0.
@@ -1838,7 +1852,7 @@ class DCtrlMesh(object):
                 else:
                     u = 0.  #0.5
                     v = 0.5 #0.
-                pt, nr = face_srf.eval(u, v)
+                pt, nr = bzr_srf.eval(u, v)
                 if old_edges_2_edge_pts.has_key( old_edges[i].eid ):
                     pt2, nr2 = old_edges_2_edge_pts[old_edges[i].eid]
                     nr3 = ( nr + nr2 ) /2.
@@ -1846,7 +1860,7 @@ class DCtrlMesh(object):
                     old_edges_2_edge_pts[old_edges[i].eid] = (pt, nr3)
                 else:
                     old_edges_2_edge_pts[old_edges[i].eid] = (pt, nr)
-            pt, nr = face_srf.eval(0.5, 0.5)
+            pt, nr = bzr_srf.eval(0.5, 0.5)
             old_faces_2_face_pts[face.eid] = (pt, nr)
 
         for edge in self.e:
