@@ -219,10 +219,10 @@ def get_initial_mesh(demo_mesh, b_quadr = True):
 
 #-----------------------------------------------------------------------------
 def srf_main():
-    n_of_iterations = 5
+    n_of_iterations = 1
     b_quad = True
-    example_name = 'tower'
-    #example_name = 'cube'
+    #example_name = 'tower'
+    example_name = 'cube'
     #example_name = 'torus'
     #example_name = 'tube'
     #example_name = 'mesh'

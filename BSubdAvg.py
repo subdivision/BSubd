@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.path as Path
 import matplotlib.patches as patches
-
+from CircAvg2D import *
 
 #-----------------------------------------------------------------------------
 class BezierCrv():
@@ -98,8 +98,16 @@ class BezierSrf():
         crnr = self.cpts[crnr_idx[0], crnr_idx[1], :]
         othr = self.cpts[other_idx[0], other_idx[1], :]
         dst = np.linalg.norm(crnr - othr)
-        tan_len = dst / (3. * (np.cos(theta/4.))**2)
-        q11 = crnr + tan_len * tan_dir
+        tan_len1 = dst / (3. * (np.cos(theta/4.))**2.)
+        k3 = 0.5 - (3. - 2. * (2.**0.5))**(1./3.) - (3. + 2. * (2.**0.5))**(1./3.)
+        sint = np.sin(theta)
+        cost = np.cos(theta)
+        tan_len2 = ( (9. - 2.*k3)*sint \
+                     - ( ((9. - 2.*k3)*sint)**2. \
+                         - 6*(2.*k3 + 3.*cost)*(5. - 2.*k3)*(1. - cost) )**0.5 )\
+                   * 1./(3*(2.*k3+3.*cost))
+        q11 = crnr + tan_len1 * tan_dir
+        q11 = crnr + tan_len2 * tan_dir
         self.cpts[trgt_idx[0], trgt_idx[1], :] = q11
 
     def _eval_pt(self, u, v):
@@ -338,8 +346,8 @@ def bspline_average_2D(t0, p0, p1, n0, n1):
     theta = get_angle_between(n0, n1)
     der_length = p0_p1_dist/(3. * (np.cos(theta/4.) ** 2.))
     a = p0 
-    b = correct_derivative_v3(p0, n0, der_length, b_ccw_rot = False)
-    c = correct_derivative_v3(p1, n1, der_length, b_ccw_rot = True)
+    b = correct_derivative_2D(p0, n0, der_length, b_ccw_rot = False)
+    c = correct_derivative_2D(p1, n1, der_length, b_ccw_rot = True)
     d = p1
 
     res_t = t0
@@ -351,7 +359,9 @@ def bspline_average_2D(t0, p0, p1, n0, n1):
     #    a, b, c, d = extrapolate_bezier(a, b, c, d, t0-1.)
     #    res_t = 1.
 
-    res_pt, res_der = eval_cubic_bezier( a, b, c, d, 1. - res_t )
+    bez_crv = BezierCrv( a, b, c, d )
+    res_pt = bez_crv.eval( 1. - res_t )
+    res_der = bez_crv.der( 1. - res_t )
     res_norm = np.array([-res_der[1], res_der[0]])
     res_norm /= np.linalg.norm(res_norm)
     #if np.linalg.norm(res_norm - ca_norm) > \
@@ -459,13 +469,13 @@ def create_input_on_a_polygon5():
 #-----------------------------------------------------------------------------
 def create_input_on_a_square():
     pts = [np.array([ 0., 0.]),
-           np.array([ 10., 0.]),
+           np.array([ 0., 10.]),
            np.array([ 10., 10.]),
-           np.array([ 0., 10.])]
-    nrm = [np.array([ -1., -1.]),
-           np.array([  1., -1.]),
-           np.array([  1.,  0.1]),
-           np.array([  -0.1,  1.])]
+           np.array([ 10., 0.])]
+    nrm = [np.array([  0., -1.]),
+           np.array([ -1.,  0.]),
+           np.array([  0.,  1.]),
+           np.array([  1.,  0.])]
     return pts, nrm
 
 #-----------------------------------------------------------------------------
@@ -490,10 +500,14 @@ def create_input_on_a_square_diff_norms():
     return pts, nnrm
 
 #-----------------------------------------------------------------------------
-def plot_pts_and_norms(pts, nrm, b_open, draw_norms, clr, 
+def plot_pts_and_norms(pts, nrm, b_open, draw_norms, clr, bold_norms = False, 
+                       nr_clr = None,
                        linestyle='', linewidth=1.0, cnvs = plt ):
     n = len(pts)
     nn = n-1 if b_open else n
+    if nr_clr is None:
+        nr_clr = clr
+
     for i in range(nn):
         curr_pt = pts[i]
         next_pt = pts[(i+1)%n]
@@ -510,10 +524,12 @@ def plot_pts_and_norms(pts, nrm, b_open, draw_norms, clr,
 
         if draw_norms:
             curr_norm = nrm[i]
+            if bold_norms:
+                curr_norm *= 1.2
             #wdth = 0.15 if i != 2 else 0.3
-            wdth = 0.3
+            wdth = 0.3 if not bold_norms else 0.6
             #colr = clr if i != 2 else 'r'
-            colr = clr
+            colr = nr_clr
             #curr_norm /= 2.0 #if i == 2 else 1.0
             gnr = cnvs.Arrow(curr_pt[0], curr_pt[1], 
                                curr_norm[0], curr_norm[1], 
@@ -524,18 +540,18 @@ def plot_pts_and_norms(pts, nrm, b_open, draw_norms, clr,
         curr_pt = pts[-1]
         gnr = cnvs.Arrow(curr_pt[0], curr_pt[1], 
                            curr_norm[0], curr_norm[1], 
-                           width=0.05, fc=clr, ec='none' )
+                           width=wdth, fc = nr_clr, ec='none' )
         cnvs.gca().add_patch(gnr)
 #-----------------------------------------------------------------------------
 def build_curves():
     n_of_iterations = 5
-    bspline_average_export = bspline_average_export_v3
+    bspline_average_export = bspline_average_2D
     b_open = False
-    subd_pts, subd_nrm = create_input_on_a_polygon5()
+    #subd_pts, subd_nrm = create_input_on_a_polygon5()
     #subd_pts, subd_nrm = create_input_on_a_polygon6()
-    #subd_pts, subd_nrm = create_input_on_a_square()
+    subd_pts, subd_nrm = create_input_on_a_square()
     #subd_pts, subd_nrm = create_input_on_a_square_diff_norms()
-    #subd_nrm = init_normals(subd_pts, b_open)
+    subd_nrm = init_normals(subd_pts, b_open)
     orig_pts = subd_pts[:]
 
     bsubd_INS_pts,  bsubd_INS_nrm  = subd_pts[:], subd_nrm[:]
@@ -566,14 +582,14 @@ def build_curves():
         bsubd_INS_pts, bsubd_INS_nrm   = double_polygon(bsubd_INS_pts, bsubd_INS_nrm,
                                                        True, b_open,
                                                       bspline_average_export)
-        bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_LR_one_step(bsubd_MLR2_pts, bsubd_MLR2_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 2)
+        #bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_LR_one_step(bsubd_MLR2_pts, bsubd_MLR2_nrm, 
+        #                                                  b_open, bspline_average_export, n_deg = 2)
         bsubd_MLR3_pts, bsubd_MLR3_nrm = subd_LR_one_step(bsubd_MLR3_pts, bsubd_MLR3_nrm, 
                                                           b_open, bspline_average_export)
         #bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_LR_one_step(bsubd_MLR5_pts, bsubd_MLR5_nrm, 
         #                                                 b_open, bspline_average_export, n_deg = 5)
-        #bsubd_4pt_pts, bsubd_4pt_nrm = subd_4PT_one_step(bsubd_4pt_pts, bsubd_4pt_nrm, 
-        #                                                 b_open, bspline_average_export)
+        bsubd_4pt_pts, bsubd_4pt_nrm = subd_4PT_one_step(bsubd_4pt_pts, bsubd_4pt_nrm, 
+                                                         b_open, bspline_average_export)
         
         #--- Circle Average
         #csubd_INS_pts, csubd_INS_nrm    = double_polygon(csubd_INS_pts, csubd_INS_nrm,
@@ -617,11 +633,19 @@ def build_curves():
     #frame1.axes.get_xaxis().set_visible(False)
     #frame1.axes.get_yaxis().set_visible(False)
 
-    plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, clr='c', linewidth=1.0, linestyle='solid')
-    plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, clr='c', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, False, clr='#8f9cde', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, False, clr='#9d9bd9', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, False, clr='#4441a9', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, clr='#4441a9', linewidth=1.0, linestyle='solid')
+
+    nr_clr = '#AEB6BF'
+    plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    
+    # Circle
+    #plt.gca().add_patch( plt.Circle( (5., 5.), 5. * 2.**0.5, edgecolor='red', facecolor='none', linewidth=3, alpha=0.5 ))
 
     #plot_pts_and_norms(csubd_INS_pts, csubd_INS_nrm, b_open, True, clr='#9dee80', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, True, clr='#90d876', linewidth=1.0, linestyle='solid')
@@ -640,11 +664,11 @@ def build_curves():
 
     #plot_pts_and_norms(corn_cut_pts, corn_cut_nrm, b_open, True, clr='#45ff02', linewidth=1.0, linestyle='solid')
 
-    plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', linewidth=1.0, linestyle='dotted')
+    plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
 
     plt.axis('equal')
-    plt.xlim([-4, 6])
-    plt.ylim([-5, 6])
+    plt.xlim([-4, 16])
+    plt.ylim([-5, 16])
     plt.axis('off')
     plt.show()
 
@@ -679,69 +703,69 @@ def build_curves():
     #plt.show()
 
 #-----------------------------------------------------------------------------
-def bezier_test():
-    a = np.array([0.0,  0.0])
-    b = np.array([1.0,  1.0])
-    c = np.array([2.0, -1.0])
-    d = np.array([3.0,  0.0])
-    print 'Orig half-length = ', estimate_bezier_length_v2(a,b,c,d)/2.
-    lb = split_cubic_bezier_get_left(a,b,c,d, 0.5)
-    print 'Left length      = ', estimate_bezier_length_v2(lb[0],lb[1],lb[2],lb[3])
+#def bezier_test():
+#    a = np.array([0.0,  0.0])
+#    b = np.array([1.0,  1.0])
+#    c = np.array([2.0, -1.0])
+#    d = np.array([3.0,  0.0])
+#    #print 'Orig half-length = ', estimate_bezier_length_v2(a,b,c,d)/2.
+#    #lb = split_cubic_bezier_get_left(a,b,c,d, 0.5)
+#    #print 'Left length      = ', estimate_bezier_length_v2(lb[0],lb[1],lb[2],lb[3])
 
-    res000_pt, res000_norm = eval_cubic_bezier(a, b, c, d, 0.0 )
-    res025_pt, res025_norm = eval_cubic_bezier(a, b, c, d, 0.25)
-    res050_pt, res050_norm = eval_cubic_bezier(a, b, c, d, 0.5 )
-    res075_pt, res075_norm = eval_cubic_bezier(a, b, c, d, 0.75)
-    res100_pt, res100_norm = eval_cubic_bezier(a, b, c, d, 1.0 )
-    res000_norm = np.array([res000_norm[1], -res000_norm[0]])
-    res025_norm = np.array([res025_norm[1], -res025_norm[0]])
-    res050_norm = np.array([res050_norm[1], -res050_norm[0]])
-    res075_norm = np.array([res075_norm[1], -res075_norm[0]])
-    res100_norm = np.array([res100_norm[1], -res100_norm[0]])
-    print get_angle(res000_norm[0], res000_norm[1]) * 180. / np.pi
-    print get_angle(res025_norm[0], res025_norm[1])* 180. / np.pi
-    print get_angle(res050_norm[0], res050_norm[1])* 180. / np.pi
-    print get_angle(res075_norm[0], res075_norm[1])* 180. / np.pi
-    print get_angle(res100_norm[0], res100_norm[1])* 180. / np.pi
-    #DEBUG = True
-    DEBUG = 'IN_DEBUG' in globals()
-    if DEBUG and IN_DEBUG:
-        verts = [
-            (a[0], a[1]), # P0
-            (b[0], b[1]), # P1
-            (c[0], c[1]), # P2
-            (d[0], d[1]), # P3
-            ]
+#    res000_pt, res000_norm = eval_cubic_bezier(a, b, c, d, 0.0 )
+#    res025_pt, res025_norm = eval_cubic_bezier(a, b, c, d, 0.25)
+#    res050_pt, res050_norm = eval_cubic_bezier(a, b, c, d, 0.5 )
+#    res075_pt, res075_norm = eval_cubic_bezier(a, b, c, d, 0.75)
+#    res100_pt, res100_norm = eval_cubic_bezier(a, b, c, d, 1.0 )
+#    res000_norm = np.array([res000_norm[1], -res000_norm[0]])
+#    res025_norm = np.array([res025_norm[1], -res025_norm[0]])
+#    res050_norm = np.array([res050_norm[1], -res050_norm[0]])
+#    res075_norm = np.array([res075_norm[1], -res075_norm[0]])
+#    res100_norm = np.array([res100_norm[1], -res100_norm[0]])
+#    print get_angle(res000_norm[0], res000_norm[1]) * 180. / np.pi
+#    print get_angle(res025_norm[0], res025_norm[1])* 180. / np.pi
+#    print get_angle(res050_norm[0], res050_norm[1])* 180. / np.pi
+#    print get_angle(res075_norm[0], res075_norm[1])* 180. / np.pi
+#    print get_angle(res100_norm[0], res100_norm[1])* 180. / np.pi
+#    #DEBUG = True
+#    DEBUG = 'IN_DEBUG' in globals()
+#    if DEBUG and IN_DEBUG:
+#        verts = [
+#            (a[0], a[1]), # P0
+#            (b[0], b[1]), # P1
+#            (c[0], c[1]), # P2
+#            (d[0], d[1]), # P3
+#            ]
         
-        codes = [Path.Path.MOVETO,
-                 Path.Path.CURVE4,
-                 Path.Path.CURVE4,
-                 Path.Path.CURVE4,
-                 ]
+#        codes = [Path.Path.MOVETO,
+#                 Path.Path.CURVE4,
+#                 Path.Path.CURVE4,
+#                 Path.Path.CURVE4,
+#                 ]
         
-        crv = Path.Path(verts, codes)
+#        crv = Path.Path(verts, codes)
         
-        fig = plt.figure() 
-        nr000 = plt.Arrow(res000_pt[0], res000_pt[1], 
-                          res000_norm[0]*.1, res000_norm[1]*.1, width=0.03, fc='g', ec='none' )
-        nr025 = plt.Arrow(res025_pt[0], res025_pt[1], 
-                          res025_norm[0]*.1, res025_norm[1]*.1, width=0.03, fc='g', ec='none' )
-        nr050 = plt.Arrow(res050_pt[0], res050_pt[1], 
-                          res050_norm[0]*.1, res050_norm[1]*.1, width=0.03, fc='g', ec='none' )
-        nr075 = plt.Arrow(res075_pt[0], res075_pt[1], 
-                          res075_norm[0]*.1, res075_norm[1]*.1, width=0.03, fc='g', ec='none' )
-        nr100 = plt.Arrow(res100_pt[0], res100_pt[1], 
-                          res100_norm[0]*.1, res100_norm[1]*.1, width=0.03, fc='g', ec='none' )
-        plt.gca().add_patch(nr000)
-        plt.gca().add_patch(nr025)
-        plt.gca().add_patch(nr050)
-        plt.gca().add_patch(nr075)
-        plt.gca().add_patch(nr100)
-        patch = patches.PathPatch(crv, facecolor='none', lw=2)
-        plt.gca().add_patch(patch)
-        plt.axis('equal')
-        plt.axis([-1.0, 2., -1.0, 2])
-        plt.show()
+#        fig = plt.figure() 
+#        nr000 = plt.Arrow(res000_pt[0], res000_pt[1], 
+#                          res000_norm[0]*.1, res000_norm[1]*.1, width=0.03, fc='g', ec='none' )
+#        nr025 = plt.Arrow(res025_pt[0], res025_pt[1], 
+#                          res025_norm[0]*.1, res025_norm[1]*.1, width=0.03, fc='g', ec='none' )
+#        nr050 = plt.Arrow(res050_pt[0], res050_pt[1], 
+#                          res050_norm[0]*.1, res050_norm[1]*.1, width=0.03, fc='g', ec='none' )
+#        nr075 = plt.Arrow(res075_pt[0], res075_pt[1], 
+#                          res075_norm[0]*.1, res075_norm[1]*.1, width=0.03, fc='g', ec='none' )
+#        nr100 = plt.Arrow(res100_pt[0], res100_pt[1], 
+#                          res100_norm[0]*.1, res100_norm[1]*.1, width=0.03, fc='g', ec='none' )
+#        plt.gca().add_patch(nr000)
+#        plt.gca().add_patch(nr025)
+#        plt.gca().add_patch(nr050)
+#        plt.gca().add_patch(nr075)
+#        plt.gca().add_patch(nr100)
+#        patch = patches.PathPatch(crv, facecolor='none', lw=2)
+#        plt.gca().add_patch(patch)
+#        plt.axis('equal')
+#        plt.axis([-1.0, 2., -1.0, 2])
+#        plt.show()
 
 #-----------------------------------------------------------------------------
 def one_pair_test():
@@ -856,8 +880,8 @@ if __name__ == "__main__":
     IN_DEBUG = False
     #max_dist_test()
     #bezier_test()
-    #build_curves()
+    build_curves()
     #one_pair_test()
-    one_line_test()
+    #one_line_test()
     #derivative_length_graph()
 #============================ END OF FILE ====================================
