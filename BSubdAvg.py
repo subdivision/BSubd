@@ -450,8 +450,9 @@ def create_input_on_a_polygon5():
            np.array([-1.,  1.]),
            np.array([ 1.,  1.]),
 
-           #np.array([ 1.,  0.]),
-           np.array([ -1,  0]),
+           #np.array([ -1.,  -1.]),
+           #np.array([ -1.,  1.]),
+           np.array([ 1,  0]),
 
            np.array([ 1., -1.])
            #np.array([ 0., -1.]),
@@ -547,11 +548,11 @@ def build_curves():
     n_of_iterations = 5
     bspline_average_export = bspline_average_2D
     b_open = False
-    #subd_pts, subd_nrm = create_input_on_a_polygon5()
+    subd_pts, subd_nrm = create_input_on_a_polygon5()
     #subd_pts, subd_nrm = create_input_on_a_polygon6()
-    subd_pts, subd_nrm = create_input_on_a_square()
+    #subd_pts, subd_nrm = create_input_on_a_square()
     #subd_pts, subd_nrm = create_input_on_a_square_diff_norms()
-    subd_nrm = init_normals(subd_pts, b_open)
+    #subd_nrm = init_normals(subd_pts, b_open)
     orig_pts = subd_pts[:]
 
     bsubd_INS_pts,  bsubd_INS_nrm  = subd_pts[:], subd_nrm[:]
@@ -595,8 +596,8 @@ def build_curves():
         #csubd_INS_pts, csubd_INS_nrm    = double_polygon(csubd_INS_pts, csubd_INS_nrm,
         #                                                 True, b_open,
         #                                                 circle_avg)
-        #csubd_MLR3_pts, csubd_MLR3_nrm  = subd_LR_one_step(csubd_MLR3_pts, csubd_MLR3_nrm, 
-        #                                                   b_open, circle_avg)
+        csubd_MLR3_pts, csubd_MLR3_nrm  = subd_LR_one_step(csubd_MLR3_pts, csubd_MLR3_nrm, 
+                                                           b_open, circle_avg)
         #csubd_MLR5_pts, csubd_MLR5_nrm  = subd_LR_one_step(csubd_MLR5_pts, csubd_MLR5_nrm, 
         #                                                   b_open, circle_avg, n_deg = 5)
         #csubd_4pt_pts, csubd_4pt_nrm = subd_4PT_one_step(csubd_4pt_pts, csubd_4pt_nrm, 
@@ -606,8 +607,8 @@ def build_curves():
         #lsubd_INS_pts, lsubd_INS_nrm    = double_polygon(lsubd_INS_pts, lsubd_INS_nrm,
         #                                                 True, b_open,
         #                                                 linear_avg)
-        #lsubd_MLR3_pts, lsubd_MLR3_nrm  = subd_LR_one_step(lsubd_MLR3_pts, lsubd_MLR3_nrm, 
-        #                                                   b_open, linear_avg)
+        lsubd_MLR3_pts, lsubd_MLR3_nrm  = subd_LR_one_step(lsubd_MLR3_pts, lsubd_MLR3_nrm, 
+                                                           b_open, linear_avg)
         #lsubd_MLR5_pts, lsubd_MLR5_nrm  = subd_LR_one_step(lsubd_MLR5_pts, lsubd_MLR5_nrm, 
         #                                                   b_open, linear_avg, n_deg = 5)
         #lsubd_4pt_pts, lsubd_4pt_nrm = subd_4PT_one_step(lsubd_4pt_pts, lsubd_4pt_nrm, 
@@ -640,20 +641,20 @@ def build_curves():
     #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, clr='#4441a9', linewidth=1.0, linestyle='solid')
 
     nr_clr = '#AEB6BF'
-    plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
-    #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     
     # Circle
     #plt.gca().add_patch( plt.Circle( (5., 5.), 5. * 2.**0.5, edgecolor='red', facecolor='none', linewidth=3, alpha=0.5 ))
 
     #plot_pts_and_norms(csubd_INS_pts, csubd_INS_nrm, b_open, True, clr='#9dee80', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, True, clr='#90d876', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, False, clr='#90d876', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_MLR5_pts, csubd_MLR5_nrm, b_open, True, clr='#43a941', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_4pt_pts, csubd_4pt_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='solid')
 
     #plot_pts_and_norms(lsubd_INS_pts,  lsubd_INS_nrm, b_open, False, clr='#ff93de', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(lsubd_MLR3_pts, lsubd_MLR3_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(lsubd_MLR3_pts, lsubd_MLR3_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='dashdot')
     #plot_pts_and_norms(lsubd_MLR5_pts, lsubd_MLR5_nrm, b_open, False, clr='#d286bb', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(lsubd_4pt_pts,  lsubd_4pt_nrm, b_open, False, clr='#ff93de', linewidth=1.0, linestyle='solid')
 
@@ -667,8 +668,8 @@ def build_curves():
     plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
 
     plt.axis('equal')
-    plt.xlim([-4, 16])
-    plt.ylim([-5, 16])
+    plt.xlim([-4, 5.5])
+    plt.ylim([-5, 5.5])
     plt.axis('off')
     plt.show()
 

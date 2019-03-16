@@ -140,7 +140,8 @@ def decide_halfplane(p1, p2, n1, n2,
     return q_halfplane
 
 #----------------------------------------------------------------------------
-def linear_avg( t1, t2, b_open, p1, p2, n1, n2 ):
+def linear_avg( t1, p1, p2, n1, n2 ):
+    t2 = 1. - t1
     #@@TODO: normals shall be computed on the unit circle
     return p1*t1 + p2*t2, n1*t1 + n2*t2, p1, 0.0, 0.0, 0.0
 
@@ -178,7 +179,8 @@ def circle_avg_v2( t1, t2, b_open, p1, p2, n1, n2 ):
        
     
 #----------------------------------------------------------------------------
-def circle_avg( t1, t2, b_open, p1, p2, n1, n2 ):
+def circle_avg( t1, p1, p2, n1, n2 ):
+    t2 = 1. - t1
     P1P2Dist = get_dist( p1, p2 )
     if vec_eeq(n1, n2):
         ResNorm = n1
@@ -192,7 +194,7 @@ def circle_avg( t1, t2, b_open, p1, p2, n1, n2 ):
 
     Theta = get_angle_between( n1, n2 )
     if eeq(Theta, 0.0) or eeq(Theta, M.pi):
-        return linear_avg(t1, t2, b_open, p1, p2, n1, n2) 
+        return linear_avg(t1, p1, p2, n1, n2) 
     DeltaVec = get_delta_vector( p1, p2, Theta )
     Cand = [MiddlePt + DeltaVec, MiddlePt - DeltaVec]
     n1_halfplane = get_halfplane(p1+n1, p1, p2)
