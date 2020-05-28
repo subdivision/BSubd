@@ -98,16 +98,19 @@ class BezierSrf():
         crnr = self.cpts[crnr_idx[0], crnr_idx[1], :]
         othr = self.cpts[other_idx[0], other_idx[1], :]
         dst = np.linalg.norm(crnr - othr)
-        tan_len1 = dst / (3. * (np.cos(theta/4.))**2.)
-        k3 = 0.5 - (3. - 2. * (2.**0.5))**(1./3.) - (3. + 2. * (2.**0.5))**(1./3.)
-        sint = np.sin(theta)
-        cost = np.cos(theta)
-        tan_len2 = ( (9. - 2.*k3)*sint \
-                     - ( ((9. - 2.*k3)*sint)**2. \
-                         - 6*(2.*k3 + 3.*cost)*(5. - 2.*k3)*(1. - cost) )**0.5 )\
-                   * 1./(3*(2.*k3+3.*cost))
+        if theta > np.pi/2.:
+            tan_len1 = dst / (3. * (np.cos((theta - np.pi/2.)/4.))**2.)
+        else:
+            tan_len1 = dst / (3. * (np.cos(theta/4.))**2.)
+        #k3 = 0.5 - (3. - 2. * (2.**0.5))**(1./3.) - (3. + 2. * (2.**0.5))**(1./3.)
+        #sint = np.sin(theta)
+        #cost = np.cos(theta)
+        #tan_len2 = ( (9. - 2.*k3)*sint \
+        #             - ( ((9. - 2.*k3)*sint)**2. \
+        #                 - 6*(2.*k3 + 3.*cost)*(5. - 2.*k3)*(1. - cost) )**0.5 )\
+        #           * 1./(3*(2.*k3+3.*cost))
         q11 = crnr + tan_len1 * tan_dir
-        q11 = crnr + tan_len2 * tan_dir
+        #q11 = crnr + tan_len2 * tan_dir
         self.cpts[trgt_idx[0], trgt_idx[1], :] = q11
 
     def _eval_pt(self, u, v):
@@ -451,7 +454,7 @@ def create_input_on_a_polygon5():
            np.array([ 1.,  1.]),
 
            #np.array([ -1.,  -1.]),
-           #np.array([ -1.,  1.]),
+           #np.array([ -1.,  0.]),
            np.array([ 1,  0]),
 
            np.array([ 1., -1.])
@@ -477,6 +480,10 @@ def create_input_on_a_square():
            np.array([ -1.,  0.]),
            np.array([  0.,  1.]),
            np.array([  1.,  0.])]
+    #nrm = [np.array([  -1., -0.1]),
+    #       np.array([  0.1,  1.]),
+    #       np.array([  1.,  1.]),
+    #       np.array([  -1.,  -1.])]
     return pts, nrm
 
 #-----------------------------------------------------------------------------
@@ -600,8 +607,8 @@ def build_curves():
                                                            b_open, circle_avg)
         #csubd_MLR5_pts, csubd_MLR5_nrm  = subd_LR_one_step(csubd_MLR5_pts, csubd_MLR5_nrm, 
         #                                                   b_open, circle_avg, n_deg = 5)
-        #csubd_4pt_pts, csubd_4pt_nrm = subd_4PT_one_step(csubd_4pt_pts, csubd_4pt_nrm, 
-        #                                                 b_open, circle_avg)
+        csubd_4pt_pts, csubd_4pt_nrm = subd_4PT_one_step(csubd_4pt_pts, csubd_4pt_nrm, 
+                                                         b_open, circle_avg)
 
         #--- Linear Average
         #lsubd_INS_pts, lsubd_INS_nrm    = double_polygon(lsubd_INS_pts, lsubd_INS_nrm,
@@ -636,20 +643,20 @@ def build_curves():
 
     #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, clr='c', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, False, clr='#8f9cde', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, False, clr='#9d9bd9', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, clr='#4441a9', linewidth=1.0, linestyle='solid')
 
     nr_clr = '#AEB6BF'
     #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
-    plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     
     # Circle
     #plt.gca().add_patch( plt.Circle( (5., 5.), 5. * 2.**0.5, edgecolor='red', facecolor='none', linewidth=3, alpha=0.5 ))
 
     #plot_pts_and_norms(csubd_INS_pts, csubd_INS_nrm, b_open, True, clr='#9dee80', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, False, clr='#90d876', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, True, clr='g', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_MLR5_pts, csubd_MLR5_nrm, b_open, True, clr='#43a941', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_4pt_pts, csubd_4pt_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='solid')
 
@@ -874,6 +881,156 @@ def derivative_length_graph():
     plt.axis('equal')
     plt.show()#block=False)
 
+#=============================================================================
+def get_Bezier_ctrl_pts(p0, p1, n0, n1):
+    p0_p1_dist = get_dist( p0, p1 )
+    if p0_p1_dist < 0.001:
+        return p1, n1
+
+    theta = get_angle_between(n0, n1)
+    der_length = p0_p1_dist/(3. * (np.cos(theta/4.) ** 2.))
+    b = correct_derivative_2D(p0, n0, der_length, b_ccw_rot = False)
+    c = correct_derivative_2D(p1, n1, der_length, b_ccw_rot = True)
+    return b,c
+
+#-----------------------------------------------------------------------------
+def in_corridor(q, p0, p1, corr_vec):
+    left_hp = get_halfplane(q, p0 + corr_vec, p0)
+    right_hp = get_halfplane(p1, p1 + corr_vec, q)
+    return left_hp == right_hp
+
+#-----------------------------------------------------------------------------
+def check_in_corridor(p0, p1, n0, n1, b, c):
+    p1mp0 = p1 - p0
+    p1mp0 /= np.linalg.norm(p1mp0)
+    corr_vec = np.array( [-p1mp0[1], p1mp0[0]] )
+    b_inside = in_corridor(b, p0, p1, corr_vec)
+    c_inside = in_corridor(c, p0, p1, corr_vec)
+    return b_inside and c_inside
+
+#-----------------------------------------------------------------------------
+def check_convex(pts):
+    hp_global = None
+    n = len(pts)
+    res = True
+    for i in range(n):
+        hp = get_halfplane(pts[(i-1+n)%n], pts[i], pts[(i+1)%n])
+        if hp == 0:
+            continue
+        elif hp_global is None:
+            hp_global = hp
+        elif hp_global != hp:
+            res = False
+            break
+    return res 
+
+#-----------------------------------------------------------------------------
+def draw_Bezier_crv(a,b,c,d, bez_color, poly_color, lw=1):
+    verts = [
+        (a[0], a[1]), # P0
+        (b[0], b[1]), # P1
+        (c[0], c[1]), # P2
+        (d[0], d[1]), # P3
+        ]
+        
+    codes = [Path.Path.MOVETO,
+                Path.Path.CURVE4,
+                Path.Path.CURVE4,
+                Path.Path.CURVE4,
+                ]
+        
+    crv = Path.Path(verts, codes)
+    patch = patches.PathPatch(crv, fc='none', ec=bez_color, lw=lw)
+    xs0, ys0 = [a[0], b[0], c[0], d[0]], [a[1], b[1], c[1], d[1]]
+    plt.plot( xs0, ys0, color = poly_color, linestyle='solid', marker='o' )
+    plt.gca().add_patch(patch)
+    return patch, xs0, ys0
+
+#-----------------------------------------------------------------------------
+def show_failed_test(p0, n0, p1, n1, p2, n2, b0, c0, bL, cL, bR, cR):
+    fig = plt.figure() 
+    #plt.xlim([(ca_center[0] - ca_radius)*1.2, (ca_center[0] + ca_radius)*1.2])
+    #plt.ylim([(ca_center[1] - ca_radius)*1.2, (ca_center[1] + ca_radius)*1.2])
+    #cr1 = plt.Circle( (ca_center[0], ca_center[1]), radius=ca_radius, fc='y', ec='none')
+    norm_len_factor = 0.2
+    nr0 = plt.Arrow(p0[0], p0[1], 
+                    n0[0]*norm_len_factor, n0[1]*norm_len_factor, 
+                    width=0.02, fc='#999999', ec='none' )
+    nr2 = plt.Arrow(p2[0], p2[1], 
+                    n2[0]*norm_len_factor, n2[1]*norm_len_factor, 
+                    width=0.02, fc='r', ec='none' )
+    nr1 = plt.Arrow(p1[0], p1[1], 
+                    n1[0]*norm_len_factor, n1[1]*norm_len_factor, 
+                    width=0.02, fc='#999999', ec='none' )
+    draw_Bezier_crv(p0, b0, c0, p1, '#CCCCCC', '#999999', lw = 4)
+    draw_Bezier_crv(p0, bL, cL, p2, 'r', 'r')
+    draw_Bezier_crv(p2, bR, cR, p1, 'c', 'c')
+    plt.plot(p2[0], p2[1], linestyle='solid', marker='o', color='r')
+    plt.gca().add_patch(nr0)
+    plt.gca().add_patch(nr2)
+    plt.gca().add_patch(nr1)
+    plt.axis('equal')
+
+    p3, n3 = bspline_average_2D(0.5, p0, p2, n0, n2)
+    bLL, cLL = get_Bezier_ctrl_pts(p0, p3, n0, n3)
+    in_corrLL = check_in_corridor(p0, p3, n0, n3, bLL, cLL)
+    is_convLL = check_convex([p0,bLL,cLL,p3])
+    bLR, cLR = get_Bezier_ctrl_pts(p3, p2, n3, n2)
+    in_corrLR = check_in_corridor(p3, p2, n3, n2, bLR, cLR)
+    is_convLR = check_convex([p3,bLR,cLR,p2])
+    print 'in_corrLL=', in_corrLL, 'is_convLL=', is_convLL
+    print 'in_corrLR=', in_corrLR, 'is_convLR=', is_convLR
+    p4, n4 = bspline_average_2D(0.5, p2, p1, n2, n1)
+    bRL, cRL = get_Bezier_ctrl_pts(p1, p4, n1, n4)
+    in_corrRL = check_in_corridor(p2, p4, n2, n4, bRL, cRL)
+    is_convRL = check_convex([p2,bRL,cRL,p4])
+    bRR, cRR = get_Bezier_ctrl_pts(p4, p1, n4, n1)
+    in_corrRR = check_in_corridor(p4, p1, n4, n1, bRR, cRR)
+    is_convRR = check_convex([p4,bRR,cRR,p1])
+    print 'in_corrRL=', in_corrRL, 'is_convRL=', is_convRL
+    print 'in_corrRR=', in_corrRR, 'is_convRR=', is_convRR
+    plt.show()
+
+#-----------------------------------------------------------------------------
+def check_conditions():
+    norms = [ np.array( [np.cos(a), np.sin(a)] ) for a in np.arange(0, 2*np.pi, 2*np.pi / 360.) ]
+    p0 = np.array([0.,0.])
+    p1 = np.array([1.,0.])
+    n = len(norms)
+    case_i, case_j = 105, 57 # bad example for the "Good remains good" case
+    #case_i, case_j = 0, 0
+    for i in range(case_i, n):
+        n0 = norms[i]
+        for j in range(case_j, n):
+            n1 = norms[j]
+            b0, c0 = get_Bezier_ctrl_pts(p0, p1, n0, n1)
+            in_corr0 = check_in_corridor(p0, p1, n0, n1, b0, c0)
+            is_conv0 = check_convex([p0,b0,c0,p1])
+            p2, n2 = bspline_average_2D(0.5, p0,p1, n0, n1)
+            bL, cL = get_Bezier_ctrl_pts(p0, p2, n0, n2)
+            in_corrL = check_in_corridor(p0, p2, n0, n2, bL, cL)
+            is_convL = check_convex([p0,bL,cL,p2])
+            bR, cR = get_Bezier_ctrl_pts(p2, p1, n2, n1)
+            in_corrR = check_in_corridor(p2, p1, n2, n1, bR, cR)
+            is_convR = check_convex([p2,bR,cR,p1])
+            test_ok = (not(in_corr0 and is_conv0) or (in_corrL and is_convL)) \
+                        and\
+                      (not(in_corr0 and is_conv0) or (in_corrR and is_convR))
+            #test_ok = (in_corrL or is_convL) and (in_corrR and is_convR)
+
+            if not test_ok:
+                print '==============================================================='
+                print 'i=',i,'j=',j,
+                print 'n0=',n0,'n1=',n1,
+                print 'ORIG C1=', str(in_corr0),'ORIG C2=',str(is_conv0),
+                print 'LEFT C1=', str(in_corrL),'LEFT C2=',str(is_convL),
+                print 'RIGHT C1=', str(in_corrR), 'RIGHT C2=', str(is_convR),
+                print 'Result = ', str(test_ok)
+                show_failed_test(p0, n0, p1, n1, p2, n2, b0, c0, bL, cL, bR, cR )
+                a = 5
+
+
+
 #-----------------------------------------------------------------------------
 if __name__ == "__main__":
     global IN_DEBUG
@@ -881,8 +1038,9 @@ if __name__ == "__main__":
     IN_DEBUG = False
     #max_dist_test()
     #bezier_test()
-    build_curves()
+    #build_curves()
     #one_pair_test()
     #one_line_test()
     #derivative_length_graph()
+    check_conditions()
 #============================ END OF FILE ====================================

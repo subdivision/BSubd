@@ -143,7 +143,7 @@ def decide_halfplane(p1, p2, n1, n2,
 def linear_avg( t1, p1, p2, n1, n2 ):
     t2 = 1. - t1
     #@@TODO: normals shall be computed on the unit circle
-    return p1*t1 + p2*t2, n1*t1 + n2*t2, p1, 0.0, 0.0, 0.0
+    return p1*t1 + p2*t2, n1*t1 + n2*t2#, p1, 0.0, 0.0, 0.0
 
 #----------------------------------------------------------------------------
 def circle_avg_v2( t1, t2, b_open, p1, p2, n1, n2 ):
@@ -188,7 +188,7 @@ def circle_avg( t1, p1, p2, n1, n2 ):
         res_t = get_weighted_angle(t1, t2, n1, n2)
         ResNorm = np.array([M.cos(res_t), M.sin(res_t)])
     if P1P2Dist<0.0001:
-        return p1, ResNorm, p1, 0.0, 0.0, 0.0
+        return p1, ResNorm #, p1, 0.0, 0.0, 0.0
 
     MiddlePt = ( p1 + p2 )/2.0
 
@@ -290,7 +290,10 @@ def circle_avg( t1, p1, p2, n1, n2 ):
     #plt.axis('scaled')
     #plt.show()
 
-    return ResPt, ResNorm, Center, Radius, beta1, beta2
+    # ---- Experiment No 4: take normal of the circle as the result normal
+    #ResNorm = -VecToCenter
+
+    return ResPt, ResNorm#, Center, Radius, beta1, beta2
 
 #----------------------------------------------------------------------------
 def get_quater(a):
