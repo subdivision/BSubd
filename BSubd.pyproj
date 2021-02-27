@@ -23,6 +23,9 @@
   <ItemGroup>
     <Compile Include="BSubdAvg.py" />
     <Compile Include="BSubdMain.py" />
+    <Compile Include="circarrow.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="CircAvg2D.py" />
     <Compile Include="DCELCore.py" />
   </ItemGroup>

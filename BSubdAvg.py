@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.path as Path
 import matplotlib.patches as patches
 from CircAvg2D import *
-
+from circarrow import drawCirc
 #-----------------------------------------------------------------------------
 class BezierCrv():
     def __init__(self, a, b, c, d):
@@ -487,6 +487,30 @@ def create_input_on_a_square():
     return pts, nrm
 
 #-----------------------------------------------------------------------------
+def create_input_on_a_square_reversed():
+    pts = [np.array([ 0., 0.]),
+           np.array([ 10., 0.]),
+           np.array([ 10., 10.]),
+           np.array([ 0., 10.])]
+    nrm = [np.array([  0., -1.]),
+           np.array([ 1.,  0.]),
+           np.array([  0.,  1.]),
+           np.array([  -1.,  0.])]
+    return pts, nrm
+
+#-----------------------------------------------------------------------------
+def create_input_on_a_square_reversed_norms_flipped():
+    pts = [np.array([ 0., 0.]),
+           np.array([ 10., 0.]),
+           np.array([ 10., 10.]),
+           np.array([ 0., 10.])]
+    nrm = [np.array([  0., 1.]),
+           np.array([ -1.,  0.]),
+           np.array([  0.,  -1.]),
+           np.array([  1.,  0.])]
+    return pts, nrm
+
+#-----------------------------------------------------------------------------
 def create_input_on_a_square_diff_norms():
     pts = [np.array([  0.,  0.]),
            np.array([ 10.,  0.]),
@@ -550,6 +574,10 @@ def plot_pts_and_norms(pts, nrm, b_open, draw_norms, clr, bold_norms = False,
                            curr_norm[0], curr_norm[1], 
                            width=wdth, fc = nr_clr, ec='none' )
         cnvs.gca().add_patch(gnr)
+
+    #drawCirc(cnvs.gca(), 2.2, 5, 5, -50, 300, ccw = False, color_ = 'green')
+    #drawCirc(cnvs.gca(), 2,   5, 5, -50, 300, ccw = True,  color_ = 'blue')
+
 #-----------------------------------------------------------------------------
 def build_curves():
     n_of_iterations = 5
@@ -558,6 +586,8 @@ def build_curves():
     subd_pts, subd_nrm = create_input_on_a_polygon5()
     #subd_pts, subd_nrm = create_input_on_a_polygon6()
     #subd_pts, subd_nrm = create_input_on_a_square()
+    #subd_pts, subd_nrm = create_input_on_a_square_reversed()
+    #subd_pts, subd_nrm = create_input_on_a_square_reversed_norms_flipped()
     #subd_pts, subd_nrm = create_input_on_a_square_diff_norms()
     #subd_nrm = init_normals(subd_pts, b_open)
     orig_pts = subd_pts[:]
@@ -649,14 +679,14 @@ def build_curves():
 
     nr_clr = '#AEB6BF'
     #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
-    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     
     # Circle
     #plt.gca().add_patch( plt.Circle( (5., 5.), 5. * 2.**0.5, edgecolor='red', facecolor='none', linewidth=3, alpha=0.5 ))
 
     #plot_pts_and_norms(csubd_INS_pts, csubd_INS_nrm, b_open, True, clr='#9dee80', linewidth=1.0, linestyle='solid')
-    plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, True, clr='g', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, True, clr='g', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_MLR5_pts, csubd_MLR5_nrm, b_open, True, clr='#43a941', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(csubd_4pt_pts, csubd_4pt_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='solid')
 
@@ -1030,17 +1060,112 @@ def check_conditions():
                 a = 5
 
 
+#=============================================================================
+def get_min_dist(pt, subd_pts):
+    return min( [get_dist(pt, sp) for sp in subd_pts ])
+
+def get_min_distances(orig_pts, subd_pts):
+    res = []
+    for op in orig_pts:
+        res.append(get_min_dist(op, subd_pts))
+    return res
+
+def not_interpol_MLR():
+    n_of_iterations = 5
+    bspline_average_export = bspline_average_2D
+    b_open = False
+    subd_pts, subd_nrm = create_input_on_a_polygon5()
+    #subd_pts, subd_nrm = create_input_on_a_polygon6()
+    #subd_pts, subd_nrm = create_input_on_a_square()
+    #subd_pts, subd_nrm = create_input_on_a_square_reversed()
+    #subd_pts, subd_nrm = create_input_on_a_square_reversed_norms_flipped()
+    #subd_pts, subd_nrm = create_input_on_a_square_diff_norms()
+    #subd_nrm = init_normals(subd_pts, b_open)
+    orig_pts = subd_pts[:]
+
+    bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_pts[:], subd_nrm[:]
+    bsubd_MLR3_pts, bsubd_MLR3_nrm = subd_pts[:], subd_nrm[:]
+    bsubd_MLR4_pts, bsubd_MLR4_nrm = subd_pts[:], subd_nrm[:]
+    bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_pts[:], subd_nrm[:]
+
+
+    for k in range(n_of_iterations):
+        #--- Bezier Average
+        bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_LR_one_step(bsubd_MLR2_pts, bsubd_MLR2_nrm, 
+                                                          b_open, bspline_average_export, n_deg = 2)
+        bsubd_MLR3_pts, bsubd_MLR3_nrm = subd_LR_one_step(bsubd_MLR3_pts, bsubd_MLR3_nrm, 
+                                                          b_open, bspline_average_export, n_deg = 3)
+        bsubd_MLR4_pts, bsubd_MLR4_nrm = subd_LR_one_step(bsubd_MLR4_pts, bsubd_MLR4_nrm, 
+                                                          b_open, bspline_average_export, n_deg = 4)
+        bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_LR_one_step(bsubd_MLR5_pts, bsubd_MLR5_nrm, 
+                                                          b_open, bspline_average_export, n_deg = 5)
+        
+
+    min_dist_2 = get_min_distances(orig_pts, bsubd_MLR2_pts)
+    min_dist_3 = get_min_distances(orig_pts, bsubd_MLR3_pts)
+    min_dist_4 = get_min_distances(orig_pts, bsubd_MLR4_pts)
+    min_dist_5 = get_min_distances(orig_pts, bsubd_MLR5_pts)
+    print min_dist_2
+    print min_dist_3
+    print min_dist_4
+    print min_dist_5
+    fig = plt.figure()#figsize=(8,8), dpi=100, frameon = False)
+    #frame1 = plt.gca()
+    #frame1.axes.get_xaxis().set_visible(False)
+    #frame1.axes.get_yaxis().set_visible(False)
+
+    #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, clr='c', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, False, clr='#9d9bd9', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, clr='#4441a9', linewidth=1.0, linestyle='solid')
+
+    nr_clr = '#AEB6BF'
+    #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_MLR4_pts, bsubd_MLR4_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    
+    # Circle
+    #plt.gca().add_patch( plt.Circle( (5., 5.), 5. * 2.**0.5, edgecolor='red', facecolor='none', linewidth=3, alpha=0.5 ))
+
+    #plot_pts_and_norms(csubd_INS_pts, csubd_INS_nrm, b_open, True, clr='#9dee80', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(csubd_MLR3_pts, csubd_MLR3_nrm, b_open, True, clr='g', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(csubd_MLR5_pts, csubd_MLR5_nrm, b_open, True, clr='#43a941', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(csubd_4pt_pts, csubd_4pt_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='solid')
+
+    #plot_pts_and_norms(lsubd_INS_pts,  lsubd_INS_nrm, b_open, False, clr='#ff93de', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(lsubd_MLR3_pts, lsubd_MLR3_nrm, b_open, False, clr='g', linewidth=1.0, linestyle='dashdot')
+    #plot_pts_and_norms(lsubd_MLR5_pts, lsubd_MLR5_nrm, b_open, False, clr='#d286bb', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(lsubd_4pt_pts,  lsubd_4pt_nrm, b_open, False, clr='#ff93de', linewidth=1.0, linestyle='solid')
+
+    #plot_pts_and_norms(opt_ins_pts, opt_ins_nrm, b_open, True, clr='y', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(opt_MLR3_pts, opt_MLR3_nrm, b_open, True, clr='g', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(opt_MLR5_pts, opt_MLR5_nrm, b_open, True, clr='#cfcf30', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(opt_4pt_pts, opt_4pt_nrm, b_open, True, clr='y', linewidth=1.0, linestyle='solid')
+
+    #plot_pts_and_norms(corn_cut_pts, corn_cut_nrm, b_open, True, clr='#45ff02', linewidth=1.0, linestyle='solid')
+
+    plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
+
+    plt.axis('equal')
+    plt.xlim([-4, 5.5])
+    plt.ylim([-5, 5.5])
+    plt.axis('off')
+    plt.show()
+
 
 #-----------------------------------------------------------------------------
 if __name__ == "__main__":
     global IN_DEBUG
     IN_DEBUG = True
     IN_DEBUG = False
+    not_interpol_MLR()
     #max_dist_test()
     #bezier_test()
     #build_curves()
     #one_pair_test()
     #one_line_test()
     #derivative_length_graph()
-    check_conditions()
+    #check_conditions()
 #============================ END OF FILE ====================================
