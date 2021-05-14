@@ -112,6 +112,20 @@ def get_dist( p1, p2 ):
     return  np.linalg.norm( p1 - p2 )
 
 #----------------------------------------------------------------------------
+def get_dist_to_segm( q, p1, p2 ):
+    x0 = q[0]
+    y0 = q[1]
+    x1 = p1[0]
+    y1 = p1[1]
+    x2 = p2[0]
+    y2 = p2[1]
+    d_perp = np.abs((x2 - x1)*(y1-y0) - (x1 - x0)*(y2 - y1)) 
+    d_perp /= ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+    d_1 = get_dist(q, p1)
+    d_2 = get_dist(q, p2)
+    return  min(d_perp, d_1, d_2)
+
+#----------------------------------------------------------------------------
 def get_weighted_angle(t1, t2, n1, n2):
     a1 = get_angle(n1[0], n1[1])
     a2 = get_angle(n2[0], n2[1])

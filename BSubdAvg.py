@@ -27,15 +27,37 @@ class BezierCrv():
     def make_flipped(cls, other):
         return cls(other.d, other.c, other.b, other.a)
 
+    def _get_quadric_bezier_ctrl_pts(self):
+        a_tag = 3.*(self.b - self.a)
+        b_tag = 3.*(self.c - self.b)
+        c_tag = 3.*(self.d - self.c)
+        return a_tag, b_tag, c_tag
+
     def der(self, t):
         t2 = t * t
         mt = 1 - t
         mt2 = mt * mt
-        a = 3.*(self.b - self.a)
-        b = 3.*(self.c - self.b)
-        c = 3.*(self.d - self.c)
-        der = a*mt2 + b*2*mt*t + c*t2
+        a_tag, b_tag, c_tag = self._get_quadric_bezier_ctrl_pts()
+        der = a_tag*mt2 + b_tag*2*mt*t + c_tag*t2
         return der
+
+    def second_der(self, t):
+        a_tag, b_tag, c_tag = self._get_quadric_bezier_ctrl_pts()
+        a_dtag = 2.*(b_tag - a_tag)
+        b_dtag = 2.*(c_tag - b_tag)
+        sec_der = t * a_dtag + (1-t) * b_dtag
+        return sec_der
+
+    def norm(self, t):
+        fir_der = self.der(t)
+        sec_der = self.second_der(t)
+        bnorm = np.cross(fir_der, sec_der)
+        bnorm /= np.linalg.norm(bnorm)
+        fir_der_unit = fir_der
+        fir_der_unit /= np.linalg.norm(fir_der_unit)
+        norm = np.cross(fir_der_unit, bnorm)
+        norm /= np.linalg.norm(norm)
+        return norm
 
     def eval(self, t):
         t2 = t * t
@@ -280,65 +302,6 @@ def correct_derivative_2D(anchor_pt, norm_dir, der_length, b_ccw_rot):
 
     res_ctrl_pt = anchor_pt + der_dir * der_length
     return res_ctrl_pt
-
-#-----------------------------------------------------------------------------
-def get_tangent_dir_3D(norm, p0, p1):
-    vec = p1 - p0
-    vec /= np.linalg.norm(vec)
-    bnorm = np.cross(norm, vec)
-    deriv = np.cross(norm, bnorm)
-    deriv /= np.linalg.norm(deriv)
-    return deriv
-#-----------------------------------------------------------------------------
-def bspline_average_3D(t0, p0, p1, n0, n1):
-    if vec_eeq(p0, p1):
-        return p0, n0
-    x_axis = np.array([1.,0.,0.])
-    y_axis = np.array([0.,1.,0.])
-    new_z = np.cross(n0, n1)
-    if vec_eeq(new_z, np.array([0.,0.,0.])) and not vec_eeq(n0, n1):
-        print 'Num inst.'
-        return linear_avg(t0, t1, b_open, p0, p1, n0, n1)
-    new_z /= np.linalg.norm(new_z)
-    new_y = np.cross(new_z, x_axis)
-    new_y /= np.linalg.norm(new_y)
-    new_x = np.cross(new_y, new_z)
-    new_x /= np.linalg.norm(new_x)
-
-    direct_transf = np.array([[new_x[0], new_x[1], new_x[2]],
-                              [new_y[0], new_y[1], new_y[2]],
-                              [new_z[0], new_z[1], new_z[2]]])
-    p1_moved = p1 - p0
-    orig_seg_length = np.linalg.norm(p1_moved)
-    p0_tag = np.array([.0,.0,.0])
-    p1_tag = project_point_to_plane(p0_tag, new_z, p1_moved)
-    new_p1 = get_vect_in_coord_sys(p1_tag, direct_transf)
-    #new_p1 = get_vect_in_coord_sys(p1_moved, direct_transf)
-    new_n0 = get_vect_in_coord_sys(n0, direct_transf)
-    new_n0 /= np.linalg.norm(new_n0)
-    new_n1 = get_vect_in_coord_sys(n1, direct_transf)
-    new_n1 /= np.linalg.norm(new_n1)
-
-    p0_2D = np.array([.0,.0])
-    p1_2D = np.array([new_p1[0],new_p1[1]])
-    n0_2D = np.array([new_n0[0],new_n0[1]])
-    n1_2D = np.array([new_n1[0],new_n1[1]])
-
-    res_pt_2D, res_norm_2D = bspline_average_v3(t0, p0_2D, p1_2D, 
-                                              n0_2D, n1_2D)
-    z_plane_offset = p1_moved.dot(new_z)
-    z_plane_offset *= (1. - t0)
-    res_pt_pln = np.array([res_pt_2D[0], res_pt_2D[1], z_plane_offset ]) 
-    res_norm_pln = np.array([res_norm_2D[0], res_norm_2D[1], 0. ]) 
-    #cntr_pt_pln = np.array([cntr_2D[0], cntr_2D[1], 0. ]) 
-    back_transf = np.linalg.inv(direct_transf)
-    res_pt = get_vect_in_coord_sys(res_pt_pln, back_transf)
-    res_pt += p0 
-    #cntr_pt = get_vect_in_coord_sys(cntr_pt_pln, back_transf)
-    #cntr_pt += p0 
-    res_norm = get_vect_in_coord_sys(res_norm_pln, back_transf)
-
-    return res_pt, res_norm
 
 #-----------------------------------------------------------------------------
 def bspline_average_2D(t0, p0, p1, n0, n1):
@@ -1061,17 +1024,58 @@ def check_conditions():
 
 
 #=============================================================================
-def get_min_dist(pt, subd_pts):
-    return min( [get_dist(pt, sp) for sp in subd_pts ])
+def get_min_dist_to_polyline(pt, subd_pts):
+    n = len(subd_pts)
+    return min( [get_dist_to_segm(pt, subd_pts[i], subd_pts[(i+1)%n]) for i in range(n) ])
 
 def get_min_distances(orig_pts, subd_pts):
     res = []
     for op in orig_pts:
-        res.append(get_min_dist(op, subd_pts))
+        res.append(get_min_dist_to_polyline(op, subd_pts))
     return res
 
-def not_interpol_MLR():
-    n_of_iterations = 5
+def get_max_norm_angle(subd_pts, subd_nrm):
+    n = len(subd_pts)
+    res = []
+    for i in range(n):
+        p_i = subd_pts[i]
+        p_ip1 = subd_pts[(i+1)%n]
+        e_i = p_ip1 - p_i
+        e_i /= np.linalg.norm(e_i)
+        n_i = subd_nrm[i]
+        res.append(np.abs(get_angle_between(e_i, n_i))* 180. / np.pi)
+    return min(res) #minimal angle between edge and normal is the maximal distortion from perpendicular
+
+def get_max_egde_length(subd_pts):
+    n = len(subd_pts)
+    return max( [get_dist(subd_pts[i], subd_pts[(i+1)%n]) for i in range(n) ])
+
+def print_res(iter, res):
+    print iter+1, "&",
+    for r in res:
+        #print "{:05.3f}".format(r), "&",
+        print "${:d}^\circ$".format(int(round(r))), "&",
+    print ""
+
+def get_max_neigh_egdes_angle(subd_pts, iteration):
+    n = len(subd_pts)
+    res = []
+    for i in range(n):
+        p_im1 = subd_pts[(i-1+n)%n]
+        p_i   = subd_pts[i]
+        p_ip1 = subd_pts[(i+1)%n]
+        e_im1 = p_i - p_im1
+        e_im1 /= np.linalg.norm(e_im1)
+        e_i   = p_ip1 - p_i
+        e_i   /= np.linalg.norm(e_i)
+        curr_res = (np.abs(get_angle_between(e_i, e_im1))* 180. / np.pi) #/ (2**iteration)
+        res.append(curr_res)
+    return max(res)
+
+
+
+def not_interpol_MLR_and_measure_angles():
+    n_of_iterations = 6
     bspline_average_export = bspline_average_2D
     b_open = False
     subd_pts, subd_nrm = create_input_on_a_polygon5()
@@ -1083,14 +1087,20 @@ def not_interpol_MLR():
     #subd_nrm = init_normals(subd_pts, b_open)
     orig_pts = subd_pts[:]
 
+    bsubd_INS_pts, bsubd_INS_nrm = subd_pts[:], subd_nrm[:]
     bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_pts[:], subd_nrm[:]
     bsubd_MLR3_pts, bsubd_MLR3_nrm = subd_pts[:], subd_nrm[:]
     bsubd_MLR4_pts, bsubd_MLR4_nrm = subd_pts[:], subd_nrm[:]
     bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_pts[:], subd_nrm[:]
-
+    bsubd_MLR6_pts, bsubd_MLR6_nrm = subd_pts[:], subd_nrm[:]
+    bsubd_MLR7_pts, bsubd_MLR7_nrm = subd_pts[:], subd_nrm[:]
+    bsubd_4pt_pts, bsubd_4pt_nrm = subd_pts[:], subd_nrm[:]
 
     for k in range(n_of_iterations):
         #--- Bezier Average
+        bsubd_INS_pts, bsubd_INS_nrm   = double_polygon(bsubd_INS_pts, bsubd_INS_nrm,
+                                                         True, b_open,
+                                                         bspline_average_export)
         bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_LR_one_step(bsubd_MLR2_pts, bsubd_MLR2_nrm, 
                                                           b_open, bspline_average_export, n_deg = 2)
         bsubd_MLR3_pts, bsubd_MLR3_nrm = subd_LR_one_step(bsubd_MLR3_pts, bsubd_MLR3_nrm, 
@@ -1099,24 +1109,67 @@ def not_interpol_MLR():
                                                           b_open, bspline_average_export, n_deg = 4)
         bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_LR_one_step(bsubd_MLR5_pts, bsubd_MLR5_nrm, 
                                                           b_open, bspline_average_export, n_deg = 5)
+        bsubd_MLR6_pts, bsubd_MLR6_nrm = subd_LR_one_step(bsubd_MLR6_pts, bsubd_MLR6_nrm, 
+                                                          b_open, bspline_average_export, n_deg = 6)
+        bsubd_MLR7_pts, bsubd_MLR7_nrm = subd_LR_one_step(bsubd_MLR7_pts, bsubd_MLR7_nrm, 
+                                                          b_open, bspline_average_export, n_deg = 7)
         
+        bsubd_4pt_pts, bsubd_4pt_nrm = subd_4PT_one_step(bsubd_4pt_pts, bsubd_4pt_nrm, 
+                                                    b_open, bspline_average_export)
 
-    min_dist_2 = get_min_distances(orig_pts, bsubd_MLR2_pts)
-    min_dist_3 = get_min_distances(orig_pts, bsubd_MLR3_pts)
-    min_dist_4 = get_min_distances(orig_pts, bsubd_MLR4_pts)
-    min_dist_5 = get_min_distances(orig_pts, bsubd_MLR5_pts)
-    print min_dist_2
-    print min_dist_3
-    print min_dist_4
-    print min_dist_5
+        #res = [
+        #    max(get_min_distances(orig_pts, bsubd_INS_pts)),
+        #    max(get_min_distances(orig_pts, bsubd_MLR2_pts)),
+        #    max(get_min_distances(orig_pts, bsubd_MLR3_pts)),
+        #    max(get_min_distances(orig_pts, bsubd_MLR4_pts)),
+        #    max(get_min_distances(orig_pts, bsubd_MLR5_pts)),
+        #    max(get_min_distances(orig_pts, bsubd_MLR6_pts)),
+        #    max(get_min_distances(orig_pts, bsubd_MLR7_pts)),
+        #]
+
+        #res = [
+        #    #get_max_egde_length(bsubd_INS_pts),
+        #    get_max_egde_length(bsubd_MLR2_nrm),
+        #    get_max_egde_length(bsubd_MLR3_nrm),
+        #    get_max_egde_length(bsubd_MLR4_nrm),
+        #    #get_max_egde_length(bsubd_MLR5_nrm),
+        #    #get_max_egde_length(bsubd_MLR6_nrm),
+        #    #get_max_egde_length(bsubd_MLR7_nrm),
+        #    get_max_egde_length(bsubd_4pt_pts),
+        #]
+
+        res = [
+            #get_max_norm_angle(bsubd_INS_pts, bsubd_INS_nrm),
+            get_max_norm_angle(bsubd_MLR2_pts, bsubd_MLR2_nrm),
+            get_max_norm_angle(bsubd_MLR3_pts, bsubd_MLR3_nrm),
+            get_max_norm_angle(bsubd_MLR4_pts, bsubd_MLR4_nrm),
+            #get_max_norm_angle(bsubd_MLR5_pts, bsubd_MLR5_nrm),
+            #get_max_norm_angle(bsubd_MLR6_pts, bsubd_MLR6_nrm),
+            #get_max_norm_angle(bsubd_MLR7_pts, bsubd_MLR7_nrm),
+            get_max_norm_angle(bsubd_4pt_pts, bsubd_4pt_nrm),
+        ]
+
+        #res = [
+        #    #get_max_neigh_egdes_angle(bsubd_INS_pts,k),
+        #    get_max_neigh_egdes_angle(bsubd_MLR2_pts,k),
+        #    get_max_neigh_egdes_angle(bsubd_MLR3_pts,k),
+        #    get_max_neigh_egdes_angle(bsubd_MLR4_pts,k),
+        #    #get_max_neigh_egdes_angle(bsubd_MLR5_pts,k),
+        #    #get_max_neigh_egdes_angle(bsubd_MLR6_pts,k),
+        #    #get_max_neigh_egdes_angle(bsubd_MLR7_pts,k),
+        #    get_max_neigh_egdes_angle(bsubd_4pt_pts,k),
+        #]
+
+        print_res(k, res)
+
     fig = plt.figure()#figsize=(8,8), dpi=100, frameon = False)
     #frame1 = plt.gca()
     #frame1.axes.get_xaxis().set_visible(False)
     #frame1.axes.get_yaxis().set_visible(False)
 
     #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, clr='c', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
-    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, False, clr='#9d9bd9', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, clr='#4441a9', linewidth=1.0, linestyle='solid')
 
@@ -1124,7 +1177,8 @@ def not_interpol_MLR():
     #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     #plot_pts_and_norms(bsubd_MLR4_pts, bsubd_MLR4_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
-    plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
+    #plot_pts_and_norms(bsubd_MLR7_pts, bsubd_MLR7_nrm, b_open, True, nr_clr = nr_clr, clr='#5D6D7E', linewidth=2.0, linestyle='solid') #'#4441a9'
     
     # Circle
     #plt.gca().add_patch( plt.Circle( (5., 5.), 5. * 2.**0.5, edgecolor='red', facecolor='none', linewidth=3, alpha=0.5 ))
@@ -1160,7 +1214,7 @@ if __name__ == "__main__":
     global IN_DEBUG
     IN_DEBUG = True
     IN_DEBUG = False
-    not_interpol_MLR()
+    not_interpol_MLR_and_measure_angles()
     #max_dist_test()
     #bezier_test()
     #build_curves()
