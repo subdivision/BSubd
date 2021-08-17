@@ -493,27 +493,27 @@ class DCtrlMesh(object):
     #-------------------------------------------------------------------------
     def print_ctrl_mesh(self):
         for v in self.v:
-            print '[{0:3d}] pt = ({1}, {2}, {3}), nr = ({4}, {5}, {6})'.\
+            print ('[{0:3d}] pt = ({1}, {2}, {3}), nr = ({4}, {5}, {6})'.\
                 format(v.eid, v.pt[0], v.pt[1], v.pt[2], 
-                       v.nr[0], v.nr[1], v.nr[2])
+                       v.nr[0], v.nr[1], v.nr[2]))
             edges = v.get_edges()
-            print '     Edges:',
+            print ('     Edges:',)
             for e in edges:
-                print e.eid,
-            print ''
+                print (e.eid,)
+            print ('')
 
         for f in self.f:
-            print '[{0:3d}] '.format(f.eid),
+            print ('[{0:3d}] '.format(f.eid),)
             edges = f.get_edges()
             for e in edges:
-                print e.eid,
-            print ''
+                print (e.eid,)
+            print ('')
 
         for e in self.e:
             assert e.he.twin.twin == e.he
-            print '[{0:3d}] {1}->{2}\n Faces: [{3}, {4}]'.format(e.eid, 
+            print ('[{0:3d}] {1}->{2}\n Faces: [{3}, {4}]'.format(e.eid, 
                     e.he.vert.eid, e.he.twin.vert.eid,
-                    e.he.face.eid, e.he.twin.face.eid)
+                    e.he.face.eid, e.he.twin.face.eid))
 
     #-------------------------------------------------------------------------
     def get_dehidral_angle_stats(self):
@@ -1617,7 +1617,7 @@ class DCtrlMesh(object):
                 res_pt, res_nr = self.average_vertices(0.5, lft_pt, rgh_pt, 
                                                     lft_nr, rgh_nr)
         if res_pt[0] == np.nan:
-            print 'NAN in Butterfly'
+            print ('NAN in Butterfly')
         return res_pt, res_nr
            
     #-------------------------------------------------------------------------

@@ -167,7 +167,7 @@ def circle_avg_v2( t1, t2, b_open, p1, p2, n1, n2 ):
     n1_halfplane = get_halfplane(p1+n1, p1, p2)
     n2_halfplane = get_halfplane(p1, p2, p2+n2)
     if n1_halfplane != n2_halfplane:
-        print 'Normals are not in the same halfplane'
+        print ('Normals are not in the same halfplane')
         return p1, n1, None, -1, 0, 0
 
     p1_p2_dist = get_dist( p1, p2 )

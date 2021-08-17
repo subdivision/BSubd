@@ -4,13 +4,14 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>69e2b957-6596-4008-98ba-06caec4c16ee</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>BSubdAvg3D.py</StartupFile>
+    <StartupFile>BiArcAvg.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>BSubd</Name>
     <RootNamespace>BSubd</RootNamespace>
+    <InterpreterId>Global|ContinuumAnalytics|Anaconda37-64</InterpreterId>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,19 +22,32 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="BiArcAvg.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="BSubdAvg.py" />
     <Compile Include="BSubdAvg3D.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="BSubdSrf.py" />
-    <Compile Include="circarrow.py">
+    <Compile Include="CircAvg2D.py" />
+    <Compile Include="circle_bug.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="CircAvg2D.py" />
     <Compile Include="DCELCore.py" />
+    <Compile Include="lin_transf.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="poisson_ratio.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="polytope.py">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="CondaEnv|CondaEnv|Anaconda2" />
+    <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda37-64" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

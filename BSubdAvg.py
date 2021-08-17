@@ -3,7 +3,86 @@ import matplotlib.pyplot as plt
 import matplotlib.path as Path
 import matplotlib.patches as patches
 from CircAvg2D import *
-from circarrow import drawCirc
+from BiArcAvg import biarc_avg
+
+#-----------------------------------------------------------------------------
+# Analysis part
+#-----------------------------------------------------------------------------
+def get_radius(a,b,c):
+    d1 = np.array([b[1] - a[1], a[0] - b[0]])
+    d2 = np.array([c[1] - a[1], a[0] - c[0]])
+    k = d2[0] * d1[1] - d2[1] * d1[0]
+    if -0.00001 <= k <= 0.00001:
+        return None
+
+    s1 = np.array([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2])
+    s2 = np.array([(a[0] + c[0]) / 2, (a[1] + c[1]) / 2])
+    l  = d1[0] * (s2[1] - s1[1]) - d1[1] * (s2[0] - s1[0])
+    m  = l / k
+    center = np.array([s2[0] + m * d2[0], s2[1] + m * d2[1]])
+    dx = center[0] - a[0]
+    dy = center[1] - a[1]
+    radius = (dx * dx + dy * dy)**0.5
+    return 1 / radius
+
+#----------------------------------------------------------------------------
+def get_slope(a,b):
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    if eeq(dx, 0.):
+        return 0.0
+    return dy/dx
+
+#----------------------------------------------------------------------------
+def get_radii(poly):
+    n = len(poly) - 1
+    radii = []
+    for i in range(1,n):
+        a = poly[i-1]
+        b = poly[i]
+        c = poly[i+1]
+        r = get_radius(a,b,c)
+        if r != None and not eeq(r, 0.):
+            radii.append(1./r)
+        else:
+            radii.append(0.)#None)
+    return radii
+
+#----------------------------------------------------------------------------
+def get_angle_diffs(poly, iter):
+    n = len(poly) - 1
+    ang_diffs = []
+    for i in range(1,n):
+        a = poly[i-1]
+        b = poly[i]
+        c = poly[i+1]
+        slope_prev = get_slope(a, b)
+        slope_curr = get_slope(b, c)
+        ang_prev = np.arctan(slope_prev)
+        ang_curr = np.arctan(slope_curr)
+        ang_diffs.append((ang_curr - ang_prev)/(2**iter))
+    return ang_diffs
+
+#----------------------------------------------------------------------------
+def get_2nd_diffs(poly, iter, orig_n):
+    n = len(poly) - 1
+    ddx = []
+    ddy = []
+
+    domain_len = get_dist( poly[0], poly[-1] )
+    delta_t_zero = domain_len / orig_n
+    delta_i_t = delta_t_zero / (2**iter)
+    two_delta_t_sqr = 2 * delta_i_t**2
+    for i in range(1,n):
+        a = poly[i-1]
+        b = poly[i]
+        c = poly[i+1]
+        ddxi = (c[0] - 2.*b[0] + a[0])/two_delta_t_sqr 
+        ddyi = (c[1] - 2.*b[1] + a[1])/two_delta_t_sqr
+        ddx.append(ddxi)
+        ddy.append(ddyi)
+    return ddx, ddy
+
 #-----------------------------------------------------------------------------
 class BezierCrv():
     def __init__(self, a, b, c, d):
@@ -434,6 +513,63 @@ def create_input_on_a_polygon5():
         nnrm.append( n/np.linalg.norm(n))
     return pts, nnrm
 #-----------------------------------------------------------------------------
+def create_input_keggle():
+    pts = [np.array([  0.,  0.]),
+           np.array([  0., 10.]),
+           np.array([  0., 20.]),
+           np.array([  0., 30.]),
+           np.array([ 10., 30.]),
+           np.array([ 10., 20.]),
+           np.array([ 10., 10.]),
+           np.array([ 10.,  0.])]
+
+    nrm = [np.array([  -1.,  -1.]),
+           np.array([  -1.,   1.]),
+           np.array([  -1.,  -1.]),
+           np.array([  -1.,   1.]),
+           np.array([   1.,   1.]),
+           np.array([   1.,  -1.]),
+           np.array([   1.,   1.]),
+           np.array([   1.,  -1.])]
+
+    nnrm = [n/np.linalg.norm(n) for n in nrm]
+    return pts, nnrm
+
+#-----------------------------------------------------------------------------
+def create_input_konsole():
+    pts = [np.array([3., 0.] ),
+           np.array([3., 6.] ),
+           np.array([9., 6.] ),
+           np.array([9., 0.] ),
+           np.array([7.5, 1.5] ),
+           np.array([4.5, 1.5] )
+           ]
+    nrm = [np.array([ 0., -1.]),
+           np.array([ 0.,  1.]),
+           np.array([ 0.,  1.]),
+           np.array([ 0., -1]),
+           np.array([ -1., 0.]),
+           np.array([ 1., 0.])
+           ]
+    return pts, nrm
+
+#-----------------------------------------------------------------------------
+def create_input_rounded_rect():
+    pts = [np.array([ 0., 0.]),
+           np.array([ 0., 10.]),
+           np.array([ 20., 10.]),
+           np.array([ 20., 0.])]
+    nrm = [np.array([  0., -1.]),
+           np.array([  0.,  1.]),
+           np.array([  0.,  1.]),
+           np.array([  0.,  -1.])]
+    #nrm = [np.array([  -1., -0.1]),
+    #       np.array([  0.1,  1.]),
+    #       np.array([  1.,  1.]),
+    #       np.array([  -1.,  -1.])]
+    return pts, nrm
+
+#-----------------------------------------------------------------------------
 def create_input_on_a_square():
     pts = [np.array([ 0., 0.]),
            np.array([ 0., 10.]),
@@ -538,8 +674,6 @@ def plot_pts_and_norms(pts, nrm, b_open, draw_norms, clr, bold_norms = False,
                            width=wdth, fc = nr_clr, ec='none' )
         cnvs.gca().add_patch(gnr)
 
-    #drawCirc(cnvs.gca(), 2.2, 5, 5, -50, 300, ccw = False, color_ = 'green')
-    #drawCirc(cnvs.gca(), 2,   5, 5, -50, 300, ccw = True,  color_ = 'blue')
 
 #-----------------------------------------------------------------------------
 def build_curves():
@@ -843,9 +977,9 @@ def max_dist_test():
             t1 = np.array([-n1[1], n1[0]]) * der_length
             b_inter = b_two_segments_intersect(p0, t0, p1, t1)
             if b_inter:
-                print 'Intersection. Der len = ', der_length, 't0 = (', t0[0], t0[1], ') t1 = (', t1[0], t1[1], ')'
+                print ('Intersection. Der len = ', der_length, 't0 = (', t0[0], t0[1], ') t1 = (', t1[0], t1[1], ')')
     if not b_inter:
-        print 'No intersectons found'
+        print ('No intersectons found')
     #        r_pt, r_norm = bspline_average_v3(0.5, p0, p1, n0, n1)
     #        dist_p0_r = get_dist(p0, r_pt)
     #        if dist_p0_r > p0_r_max[0]:
@@ -971,8 +1105,8 @@ def show_failed_test(p0, n0, p1, n1, p2, n2, b0, c0, bL, cL, bR, cR):
     bLR, cLR = get_Bezier_ctrl_pts(p3, p2, n3, n2)
     in_corrLR = check_in_corridor(p3, p2, n3, n2, bLR, cLR)
     is_convLR = check_convex([p3,bLR,cLR,p2])
-    print 'in_corrLL=', in_corrLL, 'is_convLL=', is_convLL
-    print 'in_corrLR=', in_corrLR, 'is_convLR=', is_convLR
+    print ('in_corrLL=', in_corrLL, 'is_convLL=', is_convLL)
+    print ('in_corrLR=', in_corrLR, 'is_convLR=', is_convLR)
     p4, n4 = bspline_average_2D(0.5, p2, p1, n2, n1)
     bRL, cRL = get_Bezier_ctrl_pts(p1, p4, n1, n4)
     in_corrRL = check_in_corridor(p2, p4, n2, n4, bRL, cRL)
@@ -980,8 +1114,8 @@ def show_failed_test(p0, n0, p1, n1, p2, n2, b0, c0, bL, cL, bR, cR):
     bRR, cRR = get_Bezier_ctrl_pts(p4, p1, n4, n1)
     in_corrRR = check_in_corridor(p4, p1, n4, n1, bRR, cRR)
     is_convRR = check_convex([p4,bRR,cRR,p1])
-    print 'in_corrRL=', in_corrRL, 'is_convRL=', is_convRL
-    print 'in_corrRR=', in_corrRR, 'is_convRR=', is_convRR
+    print ('in_corrRL=', in_corrRL, 'is_convRL=', is_convRL)
+    print ('in_corrRR=', in_corrRR, 'is_convRR=', is_convRR)
     plt.show()
 
 #-----------------------------------------------------------------------------
@@ -1012,13 +1146,13 @@ def check_conditions():
             #test_ok = (in_corrL or is_convL) and (in_corrR and is_convR)
 
             if not test_ok:
-                print '==============================================================='
-                print 'i=',i,'j=',j,
-                print 'n0=',n0,'n1=',n1,
-                print 'ORIG C1=', str(in_corr0),'ORIG C2=',str(is_conv0),
-                print 'LEFT C1=', str(in_corrL),'LEFT C2=',str(is_convL),
-                print 'RIGHT C1=', str(in_corrR), 'RIGHT C2=', str(is_convR),
-                print 'Result = ', str(test_ok)
+                print ('===============================================================')
+                print ('i=',i,'j=',j,)
+                print ('n0=',n0,'n1=',n1,)
+                print ('ORIG C1=', str(in_corr0),'ORIG C2=',str(is_conv0),)
+                print ('LEFT C1=', str(in_corrL),'LEFT C2=',str(is_convL),)
+                print ('RIGHT C1=', str(in_corrR), 'RIGHT C2=', str(is_convR),)
+                print ('Result = ', str(test_ok))
                 show_failed_test(p0, n0, p1, n1, p2, n2, b0, c0, bL, cL, bR, cR )
                 a = 5
 
@@ -1051,13 +1185,13 @@ def get_max_egde_length(subd_pts):
     return max( [get_dist(subd_pts[i], subd_pts[(i+1)%n]) for i in range(n) ])
 
 def print_res(iter, res):
-    print iter+1, "&",
+    print (iter+1, "&",)
     for r in res:
         #print "{:05.3f}".format(r), "&",
-        print "${:d}^\circ$".format(int(round(r))), "&",
-    print ""
+        print ("${:d}^\circ$".format(int(round(r))), "&",)
+    print ("")
 
-def get_max_neigh_egdes_angle(subd_pts, iteration):
+def get_neigh_egdes_angle(subd_pts, iteration = 1):
     n = len(subd_pts)
     res = []
     for i in range(n):
@@ -1068,18 +1202,24 @@ def get_max_neigh_egdes_angle(subd_pts, iteration):
         e_im1 /= np.linalg.norm(e_im1)
         e_i   = p_ip1 - p_i
         e_i   /= np.linalg.norm(e_i)
-        curr_res = (np.abs(get_angle_between(e_i, e_im1))* 180. / np.pi) #/ (2**iteration)
+        curr_res = (np.abs(get_angle_between(e_i, e_im1))* 180. / np.pi) / (2**iteration)
         res.append(curr_res)
-    return max(res)
+    return res
+
+def get_max_neigh_egdes_angle(subd_pts):
+    return max(get_neigh_egdes_angle(subd_pts))
 
 
 
 def not_interpol_MLR_and_measure_angles():
-    n_of_iterations = 6
-    bspline_average_export = bspline_average_2D
+    np.seterr(all='raise')
+    n_of_iterations = 5
     b_open = False
-    subd_pts, subd_nrm = create_input_on_a_polygon5()
+    #subd_pts, subd_nrm = create_input_on_a_polygon5()
+    #subd_pts, subd_nrm = create_input_rounded_rect()
     #subd_pts, subd_nrm = create_input_on_a_polygon6()
+    #subd_pts, subd_nrm = create_input_keggle()
+    subd_pts, subd_nrm = create_input_konsole()
     #subd_pts, subd_nrm = create_input_on_a_square()
     #subd_pts, subd_nrm = create_input_on_a_square_reversed()
     #subd_pts, subd_nrm = create_input_on_a_square_reversed_norms_flipped()
@@ -1096,26 +1236,38 @@ def not_interpol_MLR_and_measure_angles():
     bsubd_MLR7_pts, bsubd_MLR7_nrm = subd_pts[:], subd_nrm[:]
     bsubd_4pt_pts, bsubd_4pt_nrm = subd_pts[:], subd_nrm[:]
 
+    biarc_INS_pts, biarc_INS_nrm = subd_pts[:], subd_nrm[:]
+    biarc_MLR2_pts, biarc_MLR2_nrm = subd_pts[:], subd_nrm[:]
+    biarc_MLR7_pts, biarc_MLR7_nrm = subd_pts[:], subd_nrm[:]
+
     for k in range(n_of_iterations):
         #--- Bezier Average
         bsubd_INS_pts, bsubd_INS_nrm   = double_polygon(bsubd_INS_pts, bsubd_INS_nrm,
                                                          True, b_open,
-                                                         bspline_average_export)
-        bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_LR_one_step(bsubd_MLR2_pts, bsubd_MLR2_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 2)
+                                                         bspline_average_2D)
+        #biarc_INS_pts, biarc_INS_nrm   = double_polygon(biarc_INS_pts, biarc_INS_nrm,
+        #                                                 True, b_open,
+        #                                                 biarc_avg)
+        #bsubd_MLR2_pts, bsubd_MLR2_nrm = subd_LR_one_step(bsubd_MLR2_pts, bsubd_MLR2_nrm, 
+        #                                                  b_open, bspline_average_2D, n_deg = 2)
+        #biarc_MLR2_pts, biarc_MLR2_nrm = subd_LR_one_step(biarc_MLR2_pts, biarc_MLR2_nrm, 
+        #                                                  b_open, biarc_avg, n_deg = 2)
+
         bsubd_MLR3_pts, bsubd_MLR3_nrm = subd_LR_one_step(bsubd_MLR3_pts, bsubd_MLR3_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 3)
-        bsubd_MLR4_pts, bsubd_MLR4_nrm = subd_LR_one_step(bsubd_MLR4_pts, bsubd_MLR4_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 4)
-        bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_LR_one_step(bsubd_MLR5_pts, bsubd_MLR5_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 5)
-        bsubd_MLR6_pts, bsubd_MLR6_nrm = subd_LR_one_step(bsubd_MLR6_pts, bsubd_MLR6_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 6)
-        bsubd_MLR7_pts, bsubd_MLR7_nrm = subd_LR_one_step(bsubd_MLR7_pts, bsubd_MLR7_nrm, 
-                                                          b_open, bspline_average_export, n_deg = 7)
+                                                          b_open, bspline_average_2D, n_deg = 3)
+        #bsubd_MLR4_pts, bsubd_MLR4_nrm = subd_LR_one_step(bsubd_MLR4_pts, bsubd_MLR4_nrm, 
+        #                                                  b_open, bspline_average_2D, n_deg = 4)
+        #bsubd_MLR5_pts, bsubd_MLR5_nrm = subd_LR_one_step(bsubd_MLR5_pts, bsubd_MLR5_nrm, 
+        #                                                  b_open, bspline_average_2D, n_deg = 5)
+        #bsubd_MLR6_pts, bsubd_MLR6_nrm = subd_LR_one_step(bsubd_MLR6_pts, bsubd_MLR6_nrm, 
+        #                                                  b_open, bspline_average_2D, n_deg = 6)
+        #bsubd_MLR7_pts, bsubd_MLR7_nrm = subd_LR_one_step(bsubd_MLR7_pts, bsubd_MLR7_nrm, 
+        #                                                  b_open, bspline_average_2D, n_deg = 7)
+        #biarc_MLR7_pts, biarc_MLR7_nrm = subd_LR_one_step(biarc_MLR7_pts, biarc_MLR7_nrm, 
+        #                                                  b_open, biarc_avg, n_deg = 7)
         
-        bsubd_4pt_pts, bsubd_4pt_nrm = subd_4PT_one_step(bsubd_4pt_pts, bsubd_4pt_nrm, 
-                                                    b_open, bspline_average_export)
+        #bsubd_4pt_pts, bsubd_4pt_nrm = subd_4PT_one_step(bsubd_4pt_pts, bsubd_4pt_nrm, 
+        #                                            b_open, bspline_average_2D)
 
         #res = [
         #    max(get_min_distances(orig_pts, bsubd_INS_pts)),
@@ -1138,16 +1290,16 @@ def not_interpol_MLR_and_measure_angles():
         #    get_max_egde_length(bsubd_4pt_pts),
         #]
 
-        res = [
-            #get_max_norm_angle(bsubd_INS_pts, bsubd_INS_nrm),
-            get_max_norm_angle(bsubd_MLR2_pts, bsubd_MLR2_nrm),
-            get_max_norm_angle(bsubd_MLR3_pts, bsubd_MLR3_nrm),
-            get_max_norm_angle(bsubd_MLR4_pts, bsubd_MLR4_nrm),
-            #get_max_norm_angle(bsubd_MLR5_pts, bsubd_MLR5_nrm),
-            #get_max_norm_angle(bsubd_MLR6_pts, bsubd_MLR6_nrm),
-            #get_max_norm_angle(bsubd_MLR7_pts, bsubd_MLR7_nrm),
-            get_max_norm_angle(bsubd_4pt_pts, bsubd_4pt_nrm),
-        ]
+        #res = [
+        #    #get_max_norm_angle(bsubd_INS_pts, bsubd_INS_nrm),
+        #    get_max_norm_angle(bsubd_MLR2_pts, bsubd_MLR2_nrm),
+        #    get_max_norm_angle(bsubd_MLR3_pts, bsubd_MLR3_nrm),
+        #    get_max_norm_angle(bsubd_MLR4_pts, bsubd_MLR4_nrm),
+        #    #get_max_norm_angle(bsubd_MLR5_pts, bsubd_MLR5_nrm),
+        #    #get_max_norm_angle(bsubd_MLR6_pts, bsubd_MLR6_nrm),
+        #    #get_max_norm_angle(bsubd_MLR7_pts, bsubd_MLR7_nrm),
+        #    get_max_norm_angle(bsubd_4pt_pts, bsubd_4pt_nrm),
+        #]
 
         #res = [
         #    #get_max_neigh_egdes_angle(bsubd_INS_pts,k),
@@ -1160,16 +1312,16 @@ def not_interpol_MLR_and_measure_angles():
         #    get_max_neigh_egdes_angle(bsubd_4pt_pts,k),
         #]
 
-        print_res(k, res)
+        #print_res(k, res)
 
-    fig = plt.figure()#figsize=(8,8), dpi=100, frameon = False)
+    #fig = plt.figure()#figsize=(8,8), dpi=100, frameon = False)
     #frame1 = plt.gca()
     #frame1.axes.get_xaxis().set_visible(False)
     #frame1.axes.get_yaxis().set_visible(False)
 
     #plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, True, clr='c', linewidth=1.0, linestyle='solid')
-    plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
-    plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#8f9cde', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_MLR5_pts, bsubd_MLR5_nrm, b_open, False, clr='#9d9bd9', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_4pt_pts, bsubd_4pt_nrm, b_open, True, clr='#4441a9', linewidth=1.0, linestyle='solid')
 
@@ -1200,7 +1352,52 @@ def not_interpol_MLR_and_measure_angles():
 
     #plot_pts_and_norms(corn_cut_pts, corn_cut_nrm, b_open, True, clr='#45ff02', linewidth=1.0, linestyle='solid')
 
+    #plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
+
+    # --- double picture goes here ---------------------
+    
+    fig = plt.figure(1)
+    plt.subplot(121)
+
+    #r = get_angle_diffs(bsubd_MLR2_pts, n_of_iterations)
+    #r = get_angle_diffs(bsubd_MLR7_pts, n_of_iterations)
+    r = get_angle_diffs(bsubd_INS_pts, n_of_iterations)
+    #r = get_angle_diffs(biarc_INS_pts, n_of_iterations)
+    t = np.arange(0.0, len(r))
+    plt.plot(t,r)
+
+    #r = get_radii(bsubd_MLR2_pts)
+    #t = np.arange(0.0, len(r))
+    #plt.plot(t, r, color='#9d68e6')
+
+    #r = get_radii(biarc_MLR2_pts)
+    #r = get_radii(biarc_MLR7_pts)
+    r = get_radii(bsubd_INS_pts)
+    #r = get_radii(biarc_INS_pts)
+
+    t = np.arange(0.0, len(r))
+    plt.plot(t, r, color='r')
+    
+    r = get_radii(bsubd_MLR3_pts)
+    plt.plot(t, r, color='r')
+
+    #s = get_angle_diffs(res_pts, n_iters)
+    #t = np.arange(0.0, len(s))
+    #plt.plot(t,s)
+
+    plt.subplot(122)
+    #plot_pts_and_norms(biarc_INS_pts, biarc_INS_nrm, b_open, True, clr='#76D7C4', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, False, clr='#76D7C4', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(biarc_MLR2_pts, biarc_MLR2_nrm, b_open, True, clr='r', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(biarc_MLR7_pts, biarc_MLR7_nrm, b_open, True, clr='r', linewidth=1.0, linestyle='solid')
     plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
+    #plt.axis('equal')
+    #plt.xlim([-1, 16])
+    #plt.ylim([-1, 16])
+    ##plt.axis('off')
+    #plt.show()
 
     plt.axis('equal')
     plt.xlim([-4, 5.5])
