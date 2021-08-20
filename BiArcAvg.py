@@ -2,7 +2,7 @@ import numpy as np
 from sympy import Point, Line, Circle
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpt
-from CircAvg2D import get_halfplane, eeq, get_angle
+from CircAvg2D import get_halfplane, eeq, get_angle, vec_eeq
 
 #=============================================================================
 #============================ DATA GENERATOR =================================
@@ -70,8 +70,9 @@ def create_input_on_a_polygon5():
            ]
 
     #rdi = [1.]*5
+    #rdi = [1.5]*5
     #rdi = [0.5, 1., 1.5, 1.3, 0.7]
-    rdi = [0.5, 1, 2., 1.5, 1.]
+    #rdi = [0.5, 1, 2., 1.5, 1.]
     return pts, tgs, rdi
 
 #-----------------------------------------------------------------------------
@@ -275,10 +276,14 @@ class BiArc:
 
 #-----------------------------------------------------------------------------
 def get_bisector(p0, p1):
-    orig_line = Line(p0, p1)
-    mid_point = (p0+p1)/2.
-    bisec = orig_line.perpendicular_line(mid_point)
-    return bisec
+    #orig_line = Line(p0, p1)
+    #mid_point = (p0+p1)/2.
+    #bisec = orig_line.perpendicular_line(mid_point)
+    #return bisec
+    mid_pt = (float(p0.x + p1.x)/2., float(p0.y + p1.y)/2.)
+    bisec_vec = (-float(p1.y - p0.y), float(p1.x - p0.x))
+    other_pt = (mid_pt[0] + bisec_vec[0], mid_pt[1] + bisec_vec[1])
+    return Line(mid_pt, other_pt, evaluate = False)
 
 #-----------------------------------------------------------------------------
 def get_junction_circle(p0, p1, t0, t1):
@@ -343,20 +348,22 @@ def get_junction_circle(p0, p1, t0, t1):
                          radius = float(0.1), color = "#FF9933")
         plt.gca().add_patch(crc)
         
-        #plt.gca().add_patch(crc)
         #plt.axis('equal')
         #plt.xlim([-5, 20])
         #plt.ylim([-15, 10])
         #plt.show()
 
 
-    return Point(float(circ_cntr.x), float(circ_cntr.y)), float(radius) #anchor_pt
+    return Point(float(circ_cntr.x), float(circ_cntr.y), evaluate=False), \
+           float(radius) #anchor_pt
 
 #-----------------------------------------------------------------------------
 def get_closest_pt(p0, p1, anchor_pt):
     d0 = p0.distance(anchor_pt)
     d1 = p1.distance(anchor_pt)
-    return p0 if d0 <= d1 else p1
+    res = p0 if d0 <= d1 else p1
+    res = Point(float(res.x), float(res.y), evaluate = False)
+    return res
 
 #-----------------------------------------------------------------------------
 def circles_are_equal(cntr0, radius0, cntr1, radius1):
@@ -368,16 +375,87 @@ def circles_are_equal(cntr0, radius0, cntr1, radius1):
     r1 = float(radius1)
     return (eeq(x0, x1) and eeq(y0, y1) and eeq(r0, r1))
 #-----------------------------------------------------------------------------
+def pt_is_between(a, q, b):
+    return a[0] <= q[0] <= b[0] and a[1] <= q[1] <= b[1]
+
+#-----------------------------------------------------------------------------
+def check_equal_points(pts):
+    if vec_eeq(pts[0], pts[2]):
+        return (0, 2)
+    elif vec_eeq(pts[0], pts[3]):
+        return (0, 3)
+    elif vec_eeq(pts[1], pts[2]):
+        return (1, 2)
+    elif vec_eeq(pts[1], pts[3]):
+        return (1, 3)
+    else:
+        return None
+
+#-----------------------------------------------------------------------------
+def get_circles_intersection(c0, r0, c1, r1):
+
+    DEBUG = 'IN_DEBUG' in globals()
+    if DEBUG and IN_DEBUG:
+        crc = mpt.Circle([float(c0.x), float(c0.y)], 
+                         radius = float(r0), ec = "#7DCEA0", fill=False)
+        plt.gca().add_patch(crc)
+        crc = mpt.Circle([float(c1.x), float(c1.y)], 
+                         radius = float(r1), color = "#FFCC99", fill=False)
+        plt.gca().add_patch(crc)
+
+    if circles_are_equal(c0, r0, c1, r1):
+        intr = []
+    else:
+        c2c_uvec = Line(c0, c1, evaluate=False).direction.unit
+        pts = [ center + c2c_uvec * sign * radius 
+               for center, radius in ((c0, r0), (c1, r1)) for sign in (1, -1)]
+        pts_coords = [(float(p.x), float(p.y)) for p in pts]
+        eq_pts_idxs = check_equal_points(pts_coords)
+        if eq_pts_idxs:
+            # we have one point touch
+            intr = [pts[eq_pts_idxs[0]]]
+        else:
+            circ1_is_in_circ0 = pt_is_between(pts_coords[0], pts_coords[2], pts_coords[1]) \
+                                and pt_is_between(pts_coords[0], pts_coords[3], pts_coords[1])
+            circ0_is_in_circ1 = pt_is_between(pts_coords[2], pts_coords[0], pts_coords[3]) \
+                                and pt_is_between(pts_coords[2], pts_coords[1], pts_coords[3])
+            complete_inclusion =  circ1_is_in_circ0 or circ0_is_in_circ1
+                                 
+            if complete_inclusion:
+                # one circle is completely inside the other
+                intr = []
+            else:
+                # generic case - 2 points intersection
+                c2c_dist = float(c0.distance(c1))
+                cos_alpha = (r0**2 + c2c_dist**2 - r1**2) / (2. * r0 * c2c_dist)
+                intr_proj_len = r0 * cos_alpha
+                intr_offset = 0. if eeq(cos_alpha, 1.) else r0 * ((1. - cos_alpha**2.) ** 0.5)
+                intr_proj_pt = c0 + c2c_uvec * intr_proj_len
+                intr_perp = Point(-c2c_uvec.y, c2c_uvec.x, evaluate=False)
+                intr = [intr_proj_pt + intr_perp * sign * intr_offset for sign in (1.,-1.)] 
+    #intr = junc_circle.intersection(Circle(aux_cntr, radius, evaluate=False))
+    DEBUG = 'IN_DEBUG' in globals()
+    if DEBUG and IN_DEBUG:
+            if 0 < len(intr):
+                crc = mpt.Circle([float(intr[0].x), float(intr[0].y)], 
+                                 radius = float(0.1), color = "#FFCC99", fill=True)
+                plt.gca().add_patch(crc)
+            if 1 < len(intr):
+                crc = mpt.Circle([float(intr[1].x), float(intr[1].y)], 
+                                 radius = float(0.1), color = "#FFCC99", fill=True)
+                plt.gca().add_patch(crc)
+
+    return intr
+
+#-----------------------------------------------------------------------------
 def get_auxiliary_pt(pt, tang, radius, junc_circle, other_pt):
     init_line = Line(pt, pt + tang)
     tang_perp = init_line.perpendicular_line(pt).direction.unit
-    aux_cntr1 = pt + radius * tang_perp
-    aux_cntr2 = pt - radius * tang_perp
+    aux_cntr1 = pt + tang_perp * radius
+    aux_cntr2 = pt - tang_perp * radius
     aux_cntr = get_closest_pt(aux_cntr1, aux_cntr2, junc_circle.center)
-    if circles_are_equal(aux_cntr, radius, junc_circle.center, junc_circle.radius):
-        intr = []
-    else:
-        intr = junc_circle.intersection(Circle(aux_cntr, radius, evaluate=False))
+    intr = get_circles_intersection(aux_cntr, radius, 
+                                    junc_circle.center, junc_circle.radius)
 
     DEBUG = 'IN_DEBUG' in globals()
     if DEBUG and IN_DEBUG:
@@ -410,9 +488,6 @@ def get_auxiliary_pt(pt, tang, radius, junc_circle, other_pt):
             #plt.xlim([-5, 20])
             #plt.ylim([-15, 10])
             #plt.show()
-
-
-
     return aux_pt
 
 #-----------------------------------------------------------------------------
@@ -595,20 +670,23 @@ def subd_LR_one_step(Pts, Tangs, Radii, bOpen = True, nDeg = 3, fnAvg = biarc_av
 
 #-----------------------------------------------------------------------------
 def algo_main():
+    #global IN_DEBUG
+    #IN_DEBUG = True
+
     n_of_iterations = 5
     b_open = False
     #src_pts, src_tgs, src_rdi = create_input_on_a_square()
-    #src_pts, src_tgs, src_rdi = create_input_keggle()
-    src_pts, src_tgs, src_rdi = create_input_on_a_polygon5()
+    src_pts, src_tgs, src_rdi = create_input_keggle()
+    #src_pts, src_tgs, src_rdi = create_input_on_a_polygon5()
     #src_pts, src_tgs, src_rdi = create_input_konsole()
 
-    #ins_pts, ins_tgs, ins_rdi = src_pts[:], src_tgs[:], src_rdi[:]
+    #mlr1_pts, mlr1_tgs, mlr1_rdi = src_pts[:], src_tgs[:], src_rdi[:]
     mlr2_pts, mlr2_tgs, mlr2_rdi = src_pts[:], src_tgs[:], src_rdi[:]
     #mlr3_pts, mlr3_tgs, mlr3_rdi = src_pts[:], src_tgs[:], src_rdi[:]
     
     for k in range(n_of_iterations):
-        #ins_pts, ins_tgs, ins_rdi = double_polygon(
-        #                            ins_pts, ins_tgs, ins_rdi, True, b_open)
+        #mlr1_pts, mlr1_tgs, mlr1_rdi = double_polygon(
+        #                            mlr1_pts, mlr1_tgs, mlr1_rdi, True, b_open)
         mlr2_pts, mlr2_tgs, mlr2_rdi = subd_LR_one_step(
                             mlr2_pts, mlr2_tgs, mlr2_rdi, b_open, 2)
         #mlr3_pts, mlr3_tgs, mlr3_rdi = subd_LR_one_step(
@@ -617,7 +695,8 @@ def algo_main():
     fig = plt.figure(1)
     plt.subplot(121)
 
-    #r = get_angle_diffs(ins_pts, n_of_iterations)
+    #=========================== Graphs ======================================
+    #r = get_angle_diffs(mlr1_pts, n_of_iterations)
     #t = np.arange(0.0, len(r))
     #plt.plot(t, r, color='#76D7C4')
 
@@ -629,7 +708,7 @@ def algo_main():
     #t = np.arange(0.0, len(r))
     #plt.plot(t, r, color='#7F00FF')
 
-    #r = get_radii(ins_pts)
+    #r = get_radii(mlr1_pts)
     #t = np.arange(0.0, len(r))
     #plt.plot(t, r, color='#76D7C4')
 
@@ -641,9 +720,11 @@ def algo_main():
     #t = np.arange(0.0, len(r))
     #plt.plot(t, r, color='#7F00FF')
 
+    #=========================== Curve plots =================================
+
     plt.subplot(122)
-    #plot_pts_and_norms(ins_pts, ins_tgs, b_open, True, clr='#76D7C4', linewidth=1.0, linestyle='solid')
-    plot_pts_and_norms(mlr2_pts, mlr2_tgs, b_open, False, clr='#7F00FF', linewidth=1.0, linestyle='solid')
+    #plot_pts_and_norms(mlr1_pts, mlr1_tgs, b_open, True, clr='#76D7C4', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(mlr2_pts, mlr2_tgs, b_open, True, clr='#7F00FF', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(mlr3_pts, mlr3_tgs, b_open, False, clr='#7F00FF', linewidth=1.0, linestyle='solid')
     plot_pts_and_norms(src_pts, src_tgs, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
 
@@ -699,6 +780,31 @@ def test_biarc_avg_generic():
     t0 = Point( 1., 1.)
     t1 = Point( 2., -1.)
     res_pt, res_tg, res_radius = biarc_avg(0.5, p0, p1, t0, t1, 3., 2.)
+
+def test_get_circles_intersection_generic():
+    c0 = Point(-1.29289321881345, -1.29289321881345, evaluate=False)
+    r0 = 1.0
+    c1 = Point(1.0, 0.0, evaluate=False)
+    r1 = 3.60555127546400
+    intr = get_circles_intersection(c0, r0, c1, r1)
+    plt.axis('equal')
+    plt.xlim([-4, 5.5])
+    plt.ylim([-5, 5.5])
+    plt.axis('off')
+    plt.show()
+
+def test_get_circles_intersection_generic_v2():
+    c0 = Point(2., 0., evaluate=False)
+    r0 = 2.0
+    c1 = Point(-0.5, 0., evaluate=False)
+    r1 = 1.
+    intr = get_circles_intersection(c0, r0, c1, r1)
+    plt.axis('equal')
+    plt.xlim([-4, 5.5])
+    plt.ylim([-5, 5.5])
+    plt.axis('off')
+    plt.show()
+
 
 def test_biarc_avg_vert():
     p0 = np.array([ 0., 10.])
@@ -768,7 +874,7 @@ def test_main():
     #test_get_secondary_biarc()
     #test_biarc_eval_pt_norm()
     #test_biarc_avg_horiz()
-    #test_biarc_avg_generic()
+    test_biarc_avg_generic()
     #test_biarc_avg_vert()
     #test_biarc_avg_vert_perp_tang()
     #test_biarc_avg_tng_parallel()
@@ -776,7 +882,9 @@ def test_main():
     #test_biarc_avg_tng_perp_par()
     #test_biarc_avg_tng_perp_antipar()
     #test_biarc_avg_tng_perp_antipar_v2()
-    test_biarc_avg_test_case_diag_tang45()
+    #test_biarc_avg_test_case_diag_tang45()
+    #test_get_circles_intersection_generic()
+    #test_get_circles_intersection_generic_v2()
 
 #=============================================================================
 if __name__ == "__main__":
