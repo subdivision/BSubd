@@ -554,6 +554,32 @@ def create_input_konsole():
     return pts, nrm
 
 #-----------------------------------------------------------------------------
+def create_input_log_spiral():
+    theta = np.array([np.pi * a / 180. for a in range(45, 900, 90)])
+    a = 0.5
+    b = 0.20
+    rdi = a * np.exp(b * theta)
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    x = rdi * cos_theta
+    y = rdi * sin_theta 
+    pts = np.array(list(zip(x, y)))
+    #tgs = np.array(list(zip(-1. * sin_theta, cos_theta)))
+    nrm = np.array(list(zip(cos_theta, sin_theta)))
+
+    pts = pts[::-1]
+    nrm = nrm[::-1]
+    #plot_pts_and_norms(pts, tgs, True, True, 'k')
+    #theta_viz = np.array([np.pi * a / 180. for a in range(45, 900, 4)])
+    #rdi_viz = a * np.exp(b * theta_viz)
+    #x_viz = rdi_viz * np.cos(theta_viz)
+    #y_viz = rdi_viz * np.sin(theta_viz)
+    #plt.plot(x_viz, y_viz)
+    #plt.show()
+
+    return pts, nrm#, rdi
+
+#-----------------------------------------------------------------------------
 def create_input_rounded_rect():
     pts = [np.array([ 0., 0.]),
            np.array([ 0., 10.]),
@@ -1214,12 +1240,13 @@ def get_max_neigh_egdes_angle(subd_pts):
 def not_interpol_MLR_and_measure_angles():
     np.seterr(all='raise')
     n_of_iterations = 5
-    b_open = False
+    b_open = True
     #subd_pts, subd_nrm = create_input_on_a_polygon5()
     #subd_pts, subd_nrm = create_input_rounded_rect()
     #subd_pts, subd_nrm = create_input_on_a_polygon6()
     #subd_pts, subd_nrm = create_input_keggle()
-    subd_pts, subd_nrm = create_input_konsole()
+    #subd_pts, subd_nrm = create_input_konsole()
+    subd_pts, subd_nrm = create_input_log_spiral()
     #subd_pts, subd_nrm = create_input_on_a_square()
     #subd_pts, subd_nrm = create_input_on_a_square_reversed()
     #subd_pts, subd_nrm = create_input_on_a_square_reversed_norms_flipped()
@@ -1379,6 +1406,7 @@ def not_interpol_MLR_and_measure_angles():
     plt.plot(t, r, color='r')
     
     r = get_radii(bsubd_MLR3_pts)
+    t = np.arange(0.0, len(r))
     plt.plot(t, r, color='r')
 
     #s = get_angle_diffs(res_pts, n_iters)
@@ -1389,7 +1417,7 @@ def not_interpol_MLR_and_measure_angles():
     #plot_pts_and_norms(biarc_INS_pts, biarc_INS_nrm, b_open, True, clr='#76D7C4', linewidth=1.0, linestyle='solid')
     plot_pts_and_norms(bsubd_INS_pts, bsubd_INS_nrm, b_open, False, clr='#76D7C4', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(bsubd_MLR2_pts, bsubd_MLR2_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
-    plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, True, clr='#9d68e6', linewidth=1.0, linestyle='solid')
+    plot_pts_and_norms(bsubd_MLR3_pts, bsubd_MLR3_nrm, b_open, False, clr='#9d68e6', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(biarc_MLR2_pts, biarc_MLR2_nrm, b_open, True, clr='r', linewidth=1.0, linestyle='solid')
     #plot_pts_and_norms(biarc_MLR7_pts, biarc_MLR7_nrm, b_open, True, clr='r', linewidth=1.0, linestyle='solid')
     plot_pts_and_norms(orig_pts, subd_nrm, b_open, True, clr='k', bold_norms = True, linewidth=1.0, linestyle='dotted')
